@@ -1,5 +1,11 @@
 {
   "dependencies": {
+    "com.github.asus4.onnxruntime": {
+      "version": "file:com.github.asus4.onnxruntime",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
     "com.unity.burst": {
       "version": "1.8.7",
       "depth": 1,
