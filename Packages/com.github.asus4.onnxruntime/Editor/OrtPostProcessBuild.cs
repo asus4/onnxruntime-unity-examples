@@ -1,4 +1,5 @@
 using System.IO;
+using UnityEngine;
 using UnityEngine.Assertions;
 using UnityEditor;
 using UnityEditor.Build;
@@ -10,13 +11,33 @@ using UnityEditor.iOS.Xcode.Extensions;
 
 namespace Microsoft.ML.OnnxRuntime.Editor
 {
-    public class OnnxPostProcessBuild : IPostprocessBuildWithReport
+    /// <summary>
+    /// Custom post-process build for ONNX Runtime
+    /// </summary>
+    public class OrtPostProcessBuild : IPostprocessBuildWithReport
     {
-        private const string PACKAGE_PATH = "Packages/com.github.asus4.onnxruntime";
-
         public int callbackOrder => 0;
 
         public void OnPostprocessBuild(BuildReport report)
+        {
+            switch (report.summary.platform)
+            {
+                case BuildTarget.iOS:
+                    PostprocessBuildIOS(report);
+                    // No need to remove __ENABLE_COREML__ because is's supported on macOS as well
+                    OrtBuildHelper.RemoveDefine(NamedBuildTarget.iOS, "__IOS__");
+                    break;
+                case BuildTarget.Android:
+                    OrtBuildHelper.RemoveDefine(NamedBuildTarget.Android, "__ANDROID__");
+                    break;
+                // TODO: Add support for other platforms
+                default:
+                    Debug.Log("OnnxPostProcessBuild.OnPostprocessBuild for target " + report.summary.platform + " is not supported");
+                    break;
+            }
+        }
+
+        private static void PostprocessBuildIOS(BuildReport report)
         {
 #if UNITY_IOS
             string pbxProjectPath = PBXProject.GetPBXProjectPath(report.summary.outputPath);
@@ -24,14 +45,14 @@ namespace Microsoft.ML.OnnxRuntime.Editor
             pbxProject.ReadFromFile(pbxProjectPath);
 
             // Copy XCFramework to in the "PROJECT/Libraries/onnxruntime.xcframework"
-            string frameworkSrcPath = Path.Combine(PACKAGE_PATH, "Plugins/iOS~/onnxruntime.xcframework");
+            string frameworkSrcPath = Path.Combine(OrtBuildHelper.PACKAGE_PATH, "Plugins/iOS~/onnxruntime.xcframework");
             string frameworkDstRelPath = "Libraries/onnxruntime.xcframework";
             string frameworkDstAbsPath = Path.Combine(report.summary.outputPath, frameworkDstRelPath);
             CopyDir(frameworkSrcPath, frameworkDstAbsPath);
 
             // Then add to Xcode project
             string frameworkGuid = pbxProject.AddFile(frameworkDstAbsPath, frameworkDstRelPath, PBXSourceTree.Source);
-            string targetGuid = pbxProject.GetUnityMainTargetGuid();
+            string targetGuid = pbxProject.GetUnityFrameworkTargetGuid();
             pbxProject.AddFileToEmbedFrameworks(targetGuid, frameworkGuid);
 
             pbxProject.WriteToFile(pbxProjectPath);
