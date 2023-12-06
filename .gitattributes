@@ -6,4 +6,5 @@
 
 # Libraries
 *.dylib filter=lfs diff=lfs merge=lfs -text
+*.aar filter=lfs diff=lfs merge=lfs -text
 **/onnxruntime.framework/onnxruntime filter=lfs diff=lfs merge=lfs -text
