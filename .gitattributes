@@ -1,3 +1,5 @@
 *.dylib filter=lfs diff=lfs merge=lfs -text
 *.onnx filter=lfs diff=lfs merge=lfs -text
 *.onnx.bytes filter=lfs diff=lfs merge=lfs -text
+
+**/onnxruntime.framework/onnxruntime filter=lfs diff=lfs merge=lfs -text
