@@ -6,6 +6,12 @@
       "source": "embedded",
       "dependencies": {}
     },
+    "com.github.asus4.onnxruntime.unity": {
+      "version": "file:com.github.asus4.onnxruntime.unity",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
     "com.unity.burst": {
       "version": "1.8.9",
       "depth": 1,
