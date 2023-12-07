@@ -29,7 +29,7 @@ namespace Microsoft.ML.OnnxRuntime.Editor
             RuntimePlatform platform = Application.platform;
             BuildTarget buildTarget = EditorUserBuildSettings.activeBuildTarget;
 
-            Debug.Log($"Initialize platform:{platform}, target{buildTarget}");
+            // Debug.Log($"Initialize platform:{platform}, target{buildTarget}");
             if (platform == RuntimePlatform.OSXEditor)
             {
                 switch (buildTarget)

@@ -12,6 +12,13 @@
       "source": "embedded",
       "dependencies": {}
     },
+    "com.github.asus4.texture-source": {
+      "version": "0.1.3",
+      "depth": 0,
+      "source": "registry",
+      "dependencies": {},
+      "url": "https://registry.npmjs.com"
+    },
     "com.unity.burst": {
       "version": "1.8.9",
       "depth": 1,
