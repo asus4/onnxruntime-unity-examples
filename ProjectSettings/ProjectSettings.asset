@@ -582,9 +582,9 @@ PlayerSettings:
   enableInternalProfiler: 0
   logObjCUncaughtExceptions: 1
   enableCrashReportAPI: 0
-  cameraUsageDescription: 
+  cameraUsageDescription: Required for ML demo
   locationUsageDescription: 
-  microphoneUsageDescription: 
+  microphoneUsageDescription: Required for ML demo
   bluetoothUsageDescription: 
   macOSTargetOSVersion: 10.13.0
   switchNMETAOverride: 
@@ -837,7 +837,7 @@ PlayerSettings:
   scriptingDefineSymbols:
     Android: __ANDROID__
     Standalone: __ENABLE_COREML__
-    iPhone: __ENABLE_COREML__
+    iPhone: __ENABLE_COREML__;__IOS__
   additionalCompilerArguments: {}
   platformArchitecture: {}
   scriptingBackend:
