@@ -1,30 +1,38 @@
-#pragma kernel TextureTransform
+#pragma kernel TextureToTensor
 
 Texture2D<float4> _InputTex;
 RWTexture2D<float4> _OutputTex;
-uint2 _OutputTexSize;
+RWBuffer<float> _OutputTensor;
+
+uint2 _OutputSize;
 float4x4 _TransformMatrix;
 
 SamplerState linearClampSampler;
 
-[numthreads(8,8,1)]
-void TextureTransform (uint2 id : SV_DispatchThreadID)
+// Get index of NCHW tensor
+uint IdxNCHW(uint c, uint y, uint x)
 {
-    if(any(id >= _OutputTexSize))
+    return c * _OutputSize.x * _OutputSize.y + y * _OutputSize.x + x;
+}
+
+[numthreads(8,8,1)]
+void TextureToTensor (uint2 id : SV_DispatchThreadID)
+{
+    if(any(id >= _OutputSize))
     {
         return; 
     }
 
-    float2 uv = (float2)id / float2(_OutputTexSize - 1.0);
+    float2 uv = (float2)id / float2(_OutputSize - 1.0);
     uv = mul(_TransformMatrix, float4(uv, 0, 1)).xy;
 
-    if(any(uv < 0) || any(uv > 1))
-    {
-        // Outside of the texture, set to black
-        _OutputTex[id] = float4(0, 0, 0, 1);
-    }
-    else
-    {
-        _OutputTex[id] = _InputTex.SampleLevel(linearClampSampler, uv, 0);
-    }
+
+    float4 color = any(uv < 0) || any(uv > 1)
+        ? float4(0, 0, 0, 1) // Outside of the texture, set to black
+        : _InputTex.SampleLevel(linearClampSampler, uv, 0);
+
+    _OutputTex[id] = color;
+    _OutputTensor[IdxNCHW(0, id.y, id.x)] = color.r;
+    _OutputTensor[IdxNCHW(1, id.y, id.x)] = color.g;
+    _OutputTensor[IdxNCHW(2, id.y, id.x)] = color.b;
 }

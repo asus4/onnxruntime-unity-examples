@@ -2,28 +2,40 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
-using Microsoft.ML.OnnxRuntime.Tensors;
 using UnityEngine;
 
 namespace Microsoft.ML.OnnxRuntime.Unity
 {
-    public class ImageInference<TInput> : IDisposable
+    public class ImageInference<T> : IDisposable
+        where T : unmanaged
     {
+        public readonly ImageInferenceOptions options;
+
         protected readonly InferenceSession session;
-        protected readonly Dictionary<string, OrtValue> inputs = new();
+        protected readonly string[] inputNames;
+        protected readonly OrtValue[] inputs;
+        protected readonly string[] outputNames;
+        protected readonly OrtValue[] outputs;
+
+        protected readonly TextureToTensor<T> textureToTensor;
 
         protected readonly string inputImageKey;
         protected readonly int channels;
         protected readonly int height;
         protected readonly int width;
 
+        public Texture InputTexture => textureToTensor.Texture;
+
         /// <summary>
         /// Create an inference that has Image input
         /// </summary>
         /// <param name="model">byte array of the Ort model</param>
-        public ImageInference(byte[] model)
+        public ImageInference(byte[] model, ImageInferenceOptions options)
         {
+            this.options = options;
+
             try
             {
                 session = new InferenceSession(model);
@@ -33,77 +45,107 @@ namespace Microsoft.ML.OnnxRuntime.Unity
                 session?.Dispose();
                 throw e;
             }
+            session.LogIOInfo();
 
-            DisplayIOInfo(session);
+            // Allocate inputs/outputs
+            (inputNames, inputs) = AllocateTensors(session.InputMetadata);
+            (outputNames, outputs) = AllocateTensors(session.OutputMetadata);
 
-            // Create input NamedOnnxValue
+            // Find image input info
             foreach (var kv in session.InputMetadata)
             {
-                string key = kv.Key;
                 NodeMetadata meta = kv.Value;
                 if (meta.IsTensor)
                 {
-                    long[] shape = meta.Dimensions.Select(x => (long)x).ToArray();
-                    if (IsSupportedImage(shape))
+                    int[] shape = meta.Dimensions;
+                    if (IsSupportedImage(meta.Dimensions))
                     {
-                        inputImageKey = key;
-                        channels = (int)shape[1];
-                        height = (int)shape[2];
-                        width = (int)shape[3];
+                        inputImageKey = kv.Key;
+                        channels = shape[1];
+                        height = shape[2];
+                        width = shape[3];
+                        break;
                     }
-                    var ortValue = OrtValue.CreateAllocatedTensorValue(
-                        OrtAllocator.DefaultInstance, meta.ElementDataType, shape);
-                    inputs.Add(key, ortValue);
+                }
+            }
+            if (inputImageKey == null)
+            {
+                throw new ArgumentException("Image input not found");
+            }
+
+            textureToTensor = new TextureToTensor<T>(width, height);
+        }
+
+        public void Dispose()
+        {
+            foreach (var ortValue in inputs)
+            {
+                ortValue.Dispose();
+            }
+            foreach (var ortValue in outputs)
+            {
+                ortValue.Dispose();
+            }
+            textureToTensor?.Dispose();
+            session?.Dispose();
+        }
+
+        public virtual void Run(Texture texture)
+        {
+            // Prepare input tensor
+            textureToTensor.Transform(texture, options.aspectMode);
+            var inputSpan = inputs[0].GetTensorMutableDataAsSpan<T>();
+            textureToTensor.TensorData.CopyTo(inputSpan);
+
+            // Run inference
+
+            // var timer = Stopwatch.StartNew();
+            session.Run(null, inputNames, inputs, outputNames, outputs);
+            // timer.Stop();
+            // UnityEngine.Debug.Log($"Inference time: {timer.ElapsedMilliseconds} ms");
+        }
+
+        private static (string[], OrtValue[]) AllocateTensors(IReadOnlyDictionary<string, NodeMetadata> metadata)
+        {
+            var names = new List<string>();
+            var values = new List<OrtValue>();
+
+            foreach (var kv in metadata)
+            {
+                NodeMetadata meta = kv.Value;
+                if (meta.IsTensor)
+                {
+                    names.Add(kv.Key);
+                    values.Add(TensorFromMetadata(meta));
                 }
                 else
                 {
                     throw new ArgumentException("Only tensor input is supported");
                 }
             }
-
-            if (inputImageKey == null)
-            {
-                throw new ArgumentException("No supported image input found");
-            }
+            return (names.ToArray(), values.ToArray());
         }
 
-        public void Dispose()
+        private static OrtValue TensorFromMetadata(NodeMetadata metadata)
         {
-            session?.Dispose();
+            long[] shape = metadata.Dimensions.Select(x => (long)x).ToArray();
+            var ortValue = OrtValue.CreateAllocatedTensorValue(
+                OrtAllocator.DefaultInstance, metadata.ElementDataType, shape);
+            return ortValue;
         }
 
-        public virtual void Run(Texture texture)
+        private static bool IsSupportedImage(int[] shape)
         {
-            // Debug.Log("TODO: Run");
-        }
-
-        private static void DisplayIOInfo(InferenceSession session)
-        {
-            foreach (var kv in session.InputMetadata)
-            {
-                string key = kv.Key;
-                NodeMetadata meta = kv.Value;
-                Debug.Log($"Input name: {key} shape: {string.Join(",", meta.Dimensions)}, type: {meta.ElementType} isTensor: {meta.IsTensor}");
-            }
-            foreach (var meta in session.OutputMetadata)
-            {
-                string key = meta.Key;
-                NodeMetadata metaValue = meta.Value;
-                Debug.Log($"Output name: {key} shape: {string.Join(",", metaValue.Dimensions)}, type: {metaValue.ElementType} isTensor: {metaValue.IsTensor}");
-            }
-        }
-
-        private static bool IsSupportedImage(long[] shape)
-        {
-            long channels = shape.Length switch
+            int channels = shape.Length switch
             {
                 4 => shape[0] == 1 ? shape[1] : 0,
                 3 => shape[0],
                 _ => 0
             };
-            // return channels == 1 || channels == 3 || channels == 4;
-            // RGB is supported for now
+            // Only RGB is supported for now
             return channels == 3;
+            // return channels == 1 || channels == 3 || channels == 4;
         }
+
     }
 }
