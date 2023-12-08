@@ -9,8 +9,11 @@ float4x4 _TransformMatrix;
 
 SamplerState linearClampSampler;
 
+const static float3 kMean = float3(0.485, 0.456, 0.406);
+const static float3 kStddev = float3(0.229, 0.224, 0.225);
+
 // Get index of NCHW tensor
-uint IdxNCHW(uint c, uint y, uint x)
+uint3 IdxNCHW(uint3 c, uint y, uint x)
 {
     return c * _OutputSize.x * _OutputSize.y + y * _OutputSize.x + x;
 }
@@ -31,16 +34,13 @@ void TextureToTensor (uint2 id : SV_DispatchThreadID)
         : _InputTex.SampleLevel(linearClampSampler, uv, 0);
 
     _OutputTex[id] = color;
+    
+    // TODO: make it configurable
+    color.rgb = (color.rgb - kMean) / kStddev;
 
     // Flip Y axis
-    uint2 tid = uint2(id.x, _OutputSize.y - id.y - 1);
-
-    // TODO: make it configurable
-    float3 mean = float3(0.485, 0.456, 0.406);
-    float3 stddev = float3(0.229, 0.224, 0.225);
-    color.rgb = (color.rgb - mean) / stddev;
-
-    _OutputTensor[IdxNCHW(0, tid.y, tid.x)] = color.r;
-    _OutputTensor[IdxNCHW(1, tid.y, tid.x)] = color.g;
-    _OutputTensor[IdxNCHW(2, tid.y, tid.x)] = color.b;
+    uint3 tid = IdxNCHW(uint3(0, 1, 2), _OutputSize.y - id.y - 1, id.x);
+    _OutputTensor[tid.x] = color.r;
+    _OutputTensor[tid.y] = color.g;
+    _OutputTensor[tid.z] = color.b;
 }
