@@ -10,7 +10,9 @@
       "version": "file:com.github.asus4.onnxruntime.unity",
       "depth": 0,
       "source": "embedded",
-      "dependencies": {}
+      "dependencies": {
+        "com.github.asus4.onnxruntime": "0.1.0"
+      }
     },
     "com.github.asus4.texture-source": {
       "version": "0.1.3",
