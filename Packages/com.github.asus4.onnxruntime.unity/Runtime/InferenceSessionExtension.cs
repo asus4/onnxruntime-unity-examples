@@ -1,4 +1,6 @@
+using System;
 using System.Diagnostics;
+using System.Linq;
 using System.Text;
 
 namespace Microsoft.ML.OnnxRuntime.Unity
@@ -36,6 +38,23 @@ namespace Microsoft.ML.OnnxRuntime.Unity
             }
 
             UnityEngine.Debug.Log(sb.ToString());
+        }
+
+        /// <summary>
+        /// Create OrtValue from NodeMetadata
+        /// </summary>
+        /// <param name="metadata">A metadata</param>
+        /// <returns>Allocated OrtValue, should be disposed.</returns>
+        public static OrtValue CreateTensorOrtValue(this NodeMetadata metadata)
+        {
+            if (!metadata.IsTensor)
+            {
+                throw new ArgumentException("metadata must be tensor");
+            }
+            long[] shape = metadata.Dimensions.Select(x => (long)x).ToArray();
+            var ortValue = OrtValue.CreateAllocatedTensorValue(
+                OrtAllocator.DefaultInstance, metadata.ElementDataType, shape);
+            return ortValue;
         }
     }
 }

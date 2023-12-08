@@ -116,7 +116,7 @@ namespace Microsoft.ML.OnnxRuntime.Unity
                 if (meta.IsTensor)
                 {
                     names.Add(kv.Key);
-                    values.Add(TensorFromMetadata(meta));
+                    values.Add(meta.CreateTensorOrtValue());
                 }
                 else
                 {
@@ -124,14 +124,6 @@ namespace Microsoft.ML.OnnxRuntime.Unity
                 }
             }
             return (names.ToArray(), values.ToArray());
-        }
-
-        private static OrtValue TensorFromMetadata(NodeMetadata metadata)
-        {
-            long[] shape = metadata.Dimensions.Select(x => (long)x).ToArray();
-            var ortValue = OrtValue.CreateAllocatedTensorValue(
-                OrtAllocator.DefaultInstance, metadata.ElementDataType, shape);
-            return ortValue;
         }
 
         private static bool IsSupportedImage(int[] shape)
