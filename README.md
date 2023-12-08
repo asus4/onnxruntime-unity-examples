@@ -2,13 +2,18 @@
 
 Some examples and pre-built ONNX Runtime libraries for Unity.
 
+## Tested environment
+
+- Unity 2020.3.12f1 (LTS)
+- macOS, iOS, Android
+
 ## How to convert onnx to ort format
 
 On the mobile platform, the *.onnx model is not supported, while it's supported on the desktop platform. Please convert the onnx model to ort format.
 
 Please refer to the [ORT model format](https://onnxruntime.ai/docs/performance/model-optimizations/ort-format-models.html).
 
-TL;DR;
+__TL;DR;__
 
 ```sh
 # Recommend to use python virtual environment
