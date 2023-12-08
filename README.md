@@ -1,5 +1,7 @@
 # ONNX Runtime examples for Unity
 
+[![npm](https://img.shields.io/npm/v/com.github.asus4.onnxruntime?label=npm)](https://www.npmjs.com/package/com.github.asus4.onnxruntime)
+
 Some examples and pre-built ONNX Runtime libraries for Unity.
 
 ## Tested environment
