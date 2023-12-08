@@ -82,9 +82,9 @@ namespace Microsoft.ML.OnnxRuntime.Unity
         public RenderTexture Transform(Texture input, Vector2 translate, float eulerRotation, Vector2 scale)
         {
             Matrix4x4 trs = Matrix4x4.TRS(
-                new Vector3(-translate.x, -translate.y, 0),
+                translate,
                 Quaternion.Euler(0, 0, -eulerRotation),
-                new Vector3(1f / scale.x, 1f / scale.y, 1));
+                new Vector3(scale.x, scale.y, 1));
             return Transform(input, PopMatrix * trs * PushMatrix);
         }
 
@@ -92,54 +92,41 @@ namespace Microsoft.ML.OnnxRuntime.Unity
         {
             float srcAspect = (float)input.width / input.height;
             float dstAspect = (float)width / height;
-            GetTextureST(srcAspect, dstAspect, aspectMode,
-                out Vector2 scale, out Vector2 translate);
-            return Transform(input, translate, 0, scale);
+            Vector2 scale = GetAspectScale(srcAspect, dstAspect, aspectMode);
+            return Transform(input, Vector3.zero, 0, scale);
         }
 
-        public static void GetTextureST(float srcAspect, float dstAspect, AspectMode mode,
-            out Vector2 scale, out Vector2 translate)
+        public static Vector2 GetAspectScale(float srcAspect, float dstAspect, AspectMode mode)
         {
             switch (mode)
             {
                 case AspectMode.None:
-                    scale = new Vector2(1, 1);
-                    translate = new Vector2(0, 0);
-                    return;
+                    return new Vector2(1, 1);
                 case AspectMode.Fit:
                     if (srcAspect > dstAspect)
                     {
                         float s = srcAspect / dstAspect;
-                        scale = new Vector2(1, s);
-                        translate = new Vector2(0, (1 - s) / 2);
-                        return;
+                        return new Vector2(1, s);
                     }
                     else
                     {
                         float s = dstAspect / srcAspect;
-                        scale = new Vector2(s, 1);
-                        translate = new Vector2((1 - s) / 2, 0);
-                        return;
+                        return new Vector2(s, 1);
                     }
                 case AspectMode.Fill:
                     if (srcAspect > dstAspect)
                     {
                         float s = dstAspect / srcAspect;
-                        scale = new Vector2(s, 1);
-                        translate = new Vector2((1 - s) / 2, 0);
-                        return;
+                        return new Vector2(s, 1);
                     }
                     else
                     {
                         float s = srcAspect / dstAspect;
-                        scale = new Vector2(1, s);
-                        translate = new Vector2(0, (1 - s) / 2);
-                        return;
+                        return new Vector2(1, s);
                     }
                 default:
                     throw new Exception("Unknown aspect mode");
             }
         }
-
     }
 }
