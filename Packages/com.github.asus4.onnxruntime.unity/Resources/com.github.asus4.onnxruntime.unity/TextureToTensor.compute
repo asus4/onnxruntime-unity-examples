@@ -26,13 +26,15 @@ void TextureToTensor (uint2 id : SV_DispatchThreadID)
     float2 uv = (float2)id / float2(_OutputSize - 1.0);
     uv = mul(_TransformMatrix, float4(uv, 0, 1)).xy;
 
-
     float4 color = any(uv < 0) || any(uv > 1)
-        ? float4(0, 0, 0, 1) // Outside of the texture, set to black
+        ? float4(0, 0, 0, 1) // Set to black the outside
         : _InputTex.SampleLevel(linearClampSampler, uv, 0);
 
     _OutputTex[id] = color;
-    _OutputTensor[IdxNCHW(0, id.y, id.x)] = color.r;
-    _OutputTensor[IdxNCHW(1, id.y, id.x)] = color.g;
-    _OutputTensor[IdxNCHW(2, id.y, id.x)] = color.b;
+
+    // Flip Y axis
+    uint2 tid = uint2(id.x, _OutputSize.y - id.y - 1);
+    _OutputTensor[IdxNCHW(0, tid.y, tid.x)] = color.r;
+    _OutputTensor[IdxNCHW(1, tid.y, tid.x)] = color.g;
+    _OutputTensor[IdxNCHW(2, tid.y, tid.x)] = color.b;
 }

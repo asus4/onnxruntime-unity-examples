@@ -2,7 +2,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using UnityEngine;
 
@@ -38,6 +37,7 @@ namespace Microsoft.ML.OnnxRuntime.Unity
 
             try
             {
+                // TODO: support GPU options
                 session = new InferenceSession(model);
             }
             catch (Exception e)
