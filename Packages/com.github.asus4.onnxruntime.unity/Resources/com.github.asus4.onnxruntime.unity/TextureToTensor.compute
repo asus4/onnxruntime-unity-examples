@@ -34,6 +34,12 @@ void TextureToTensor (uint2 id : SV_DispatchThreadID)
 
     // Flip Y axis
     uint2 tid = uint2(id.x, _OutputSize.y - id.y - 1);
+
+    // TODO: make it configurable
+    float3 mean = float3(0.485, 0.456, 0.406);
+    float3 stddev = float3(0.229, 0.224, 0.225);
+    color.rgb = (color.rgb - mean) / stddev;
+
     _OutputTensor[IdxNCHW(0, tid.y, tid.x)] = color.r;
     _OutputTensor[IdxNCHW(1, tid.y, tid.x)] = color.g;
     _OutputTensor[IdxNCHW(2, tid.y, tid.x)] = color.b;
