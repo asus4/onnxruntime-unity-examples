@@ -11,7 +11,7 @@
       "depth": 0,
       "source": "embedded",
       "dependencies": {
-        "com.github.asus4.onnxruntime": "0.1.1"
+        "com.github.asus4.onnxruntime": "0.1.2"
       }
     },
     "com.github.asus4.texture-source": {

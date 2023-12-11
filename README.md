@@ -50,5 +50,5 @@ python -m onnxruntime.tools.convert_onnx_models_to_ort mobileone_s4_224x224.onnx
 ## Links for libraries
 
 - [macOS](https://github.com/microsoft/onnxruntime/releases/)
-- [Android](https://central.sonatype.com/artifact/com.microsoft.onnxruntime/onnxruntime-mobile/versions)
-- [iOS](https://github.com/CocoaPods/Specs/tree/master/Specs/3/d/f/onnxruntime-mobile-c)
+- [Android](https://central.sonatype.com/artifact/com.microsoft.onnxruntime/onnxruntime-android/versions)
+- [iOS](https://github.com/CocoaPods/Specs/tree/master/Specs/3/a/a/onnxruntime-c)
