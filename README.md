@@ -6,7 +6,7 @@ Some examples and pre-built ONNX Runtime libraries for Unity.
 
 ## Tested environment
 
-- Unity 2020.3.12f1 (LTS)
+- Unity 2022.3.12f1 (LTS)
 - macOS, iOS, Android
 
 ## Install via Unity Package Manager
