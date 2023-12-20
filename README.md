@@ -52,3 +52,7 @@ python -m onnxruntime.tools.convert_onnx_models_to_ort mobileone_s4_224x224.onnx
 - [macOS](https://github.com/microsoft/onnxruntime/releases/)
 - [Android](https://central.sonatype.com/artifact/com.microsoft.onnxruntime/onnxruntime-android/versions)
 - [iOS](https://github.com/CocoaPods/Specs/tree/master/Specs/3/a/a/onnxruntime-c)
+
+## Acknowledgements
+
+- [PINTO_model_zoo](https://github.com/PINTO0309/PINTO_model_zoo): Some ORT models are converted from this repository.
