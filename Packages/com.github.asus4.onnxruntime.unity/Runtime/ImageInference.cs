@@ -14,7 +14,7 @@ namespace Microsoft.ML.OnnxRuntime.Unity
     public class ImageInference<T> : IDisposable
         where T : unmanaged
     {
-        public readonly ImageInferenceOptions options;
+        public readonly ImageInferenceOptions imageOptions;
 
         protected readonly InferenceSession session;
         protected readonly SessionOptions sessionOptions;
@@ -42,7 +42,7 @@ namespace Microsoft.ML.OnnxRuntime.Unity
         /// <param name="model">byte array of the Ort model</param>
         public ImageInference(byte[] model, ImageInferenceOptions options)
         {
-            this.options = options;
+            imageOptions = options;
 
             try
             {
@@ -109,7 +109,7 @@ namespace Microsoft.ML.OnnxRuntime.Unity
         {
             // Prepare input tensor
             preprocessPerfMarker.Begin();
-            textureToTensor.Transform(texture, options.aspectMode);
+            textureToTensor.Transform(texture, imageOptions.aspectMode);
             var inputSpan = inputs[0].GetTensorMutableDataAsSpan<T>();
             textureToTensor.TensorData.CopyTo(inputSpan);
             preprocessPerfMarker.End();
