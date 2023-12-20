@@ -20,10 +20,16 @@ namespace Microsoft.ML.OnnxRuntime.Unity
         Fill = 2,
     }
 
-    [System.Serializable]
+    /// <summary>
+    /// An option to create a Image inference
+    /// </summary>
+    [Serializable]
     public class ImageInferenceOptions
     {
+        [Tooltip("How to resize the image")]
         public AspectMode aspectMode = AspectMode.Fit;
+
+        [Tooltip("Whether to use GPU")]
         public bool useGPU = false;
 
         public SessionOptions CreateSessionOptions()
@@ -44,6 +50,11 @@ namespace Microsoft.ML.OnnxRuntime.Unity
             return options;
         }
 
+        /// <summary>
+        /// Automatically append execution provider based on the platform
+        /// </summary>
+        /// <param name="platform"></param>
+        /// <param name="options"></param>
         public void AppendExecutionProvider(RuntimePlatform platform, SessionOptions options)
         {
             switch (platform)

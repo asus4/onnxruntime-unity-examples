@@ -3,9 +3,14 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using Unity.Profiling;
 
 namespace Microsoft.ML.OnnxRuntime.Unity
 {
+    /// <summary>
+    /// Base class for the model that has image input
+    /// </summary>
+    /// <typeparam name="T">Type of model input ex, float or short</typeparam>
     public class ImageInference<T> : IDisposable
         where T : unmanaged
     {
@@ -26,6 +31,10 @@ namespace Microsoft.ML.OnnxRuntime.Unity
         protected readonly int width;
 
         public Texture InputTexture => textureToTensor.Texture;
+
+        // Profilers
+        static readonly ProfilerMarker preprocessPerfMarker = new("ImageInference.Preprocess");
+        static readonly ProfilerMarker runPerfMarker = new("ImageInference.Session.Run");
 
         /// <summary>
         /// Create an inference that has Image input
@@ -95,16 +104,16 @@ namespace Microsoft.ML.OnnxRuntime.Unity
         public virtual void Run(Texture texture)
         {
             // Prepare input tensor
+            preprocessPerfMarker.Begin();
             textureToTensor.Transform(texture, options.aspectMode);
             var inputSpan = inputs[0].GetTensorMutableDataAsSpan<T>();
             textureToTensor.TensorData.CopyTo(inputSpan);
+            preprocessPerfMarker.End();
 
             // Run inference
-
-            // var timer = Stopwatch.StartNew();
+            runPerfMarker.Begin();
             session.Run(null, inputNames, inputs, outputNames, outputs);
-            // timer.Stop();
-            // UnityEngine.Debug.Log($"Inference time: {timer.ElapsedMilliseconds} ms");
+            runPerfMarker.End();
         }
 
         private static (string[], OrtValue[]) AllocateTensors(IReadOnlyDictionary<string, NodeMetadata> metadata)
