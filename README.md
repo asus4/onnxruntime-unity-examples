@@ -32,19 +32,21 @@ Some examples and pre-built ONNX Runtime libraries for Unity.
 
 ## How to convert onnx to ort format
 
-On the mobile platform, the *.onnx model is not supported, while it's supported on the desktop platform. Please convert the onnx model to ort format.
+On the mobile platform, the *.onnx model is not supported, while it's supported on the desktop. Please convert the onnx model to ort format.
 
-Please refer to the [ORT model format](https://onnxruntime.ai/docs/performance/model-optimizations/ort-format-models.html).
+Please refer to the [ORT model format](https://onnxruntime.ai/docs/performance/model-optimizations/ort-format-models.html) for more details.
 
 __TL;DR;__
 
 ```sh
 # Recommend using python virtual environment
-
 pip install onnx
 pip install onnxruntime
 
-python -m onnxruntime.tools.convert_onnx_models_to_ort mobileone_s4_224x224.onnx
+# In general,
+# Use --optimization_style Runtime, when running on mobile GPU
+# Use --optimization_style Fixed, when running on mobile CPU
+python -m onnxruntime.tools.convert_onnx_models_to_ort mobileone_s4_224x224.onnx --optimization_style Runtime
 ```
 
 ## Links for libraries

@@ -44,7 +44,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         public MobileOne(byte[] model, Options options)
             : base(model, options)
         {
-            this.topK = options.topK;
+            topK = options.topK;
             var info = outputs[0].GetTensorTypeAndShape();
             int length = (int)info.Shape[1];
             labels = new Label[length];

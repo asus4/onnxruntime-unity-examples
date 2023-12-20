@@ -692,7 +692,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c8282f691aed44ad9950741d946d44b2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  model: {fileID: 1840921532545725537, guid: 9db30612f88a84edf828fa2b6c217a3a, type: 3}
+  model: {fileID: 1840921532545725537, guid: 17d40b5700605466ca1bf426f26758d7, type: 3}
   options:
     aspectMode: 2
     useGPU: 1
