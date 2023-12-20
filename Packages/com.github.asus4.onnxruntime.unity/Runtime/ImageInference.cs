@@ -2,7 +2,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 
 namespace Microsoft.ML.OnnxRuntime.Unity
@@ -13,6 +12,7 @@ namespace Microsoft.ML.OnnxRuntime.Unity
         public readonly ImageInferenceOptions options;
 
         protected readonly InferenceSession session;
+        protected readonly SessionOptions sessionOptions;
         protected readonly string[] inputNames;
         protected readonly OrtValue[] inputs;
         protected readonly string[] outputNames;
@@ -37,12 +37,13 @@ namespace Microsoft.ML.OnnxRuntime.Unity
 
             try
             {
-                // TODO: support GPU options
-                session = new InferenceSession(model);
+                sessionOptions = options.CreateSessionOptions();
+                session = new InferenceSession(model, sessionOptions);
             }
             catch (Exception e)
             {
                 session?.Dispose();
+                sessionOptions?.Dispose();
                 throw e;
             }
             session.LogIOInfo();
@@ -88,6 +89,7 @@ namespace Microsoft.ML.OnnxRuntime.Unity
             }
             textureToTensor?.Dispose();
             session?.Dispose();
+            sessionOptions?.Dispose();
         }
 
         public virtual void Run(Texture texture)

@@ -695,6 +695,7 @@ MonoBehaviour:
   model: {fileID: 1840921532545725537, guid: 9db30612f88a84edf828fa2b6c217a3a, type: 3}
   options:
     aspectMode: 2
+    useGPU: 1
     labelFile: {fileID: 4900000, guid: ba31d3c702dc14c68b5724c21a017898, type: 3}
     topK: 5
   debugImage: {fileID: 429657177}
