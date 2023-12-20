@@ -23,9 +23,9 @@ Some examples and pre-built ONNX Runtime libraries for Unity.
   ]
   "dependencies": {
     // Core library
-    "com.github.asus4.onnxruntime": "0.1.0",
+    "com.github.asus4.onnxruntime": "0.1.2",
     // Utilities for Unity
-    "com.github.asus4.onnxruntime.unity": "0.1.0",
+    "com.github.asus4.onnxruntime.unity": "0.1.2",
     ... other dependencies
   }
 ```
