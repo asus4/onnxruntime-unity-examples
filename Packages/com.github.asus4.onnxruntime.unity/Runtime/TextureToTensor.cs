@@ -17,10 +17,14 @@ namespace Microsoft.ML.OnnxRuntime.Unity
         private static readonly int _OutputTensor = Shader.PropertyToID("_OutputTensor");
         private static readonly int _OutputSize = Shader.PropertyToID("_OutputSize");
         private static readonly int _TransformMatrix = Shader.PropertyToID("_TransformMatrix");
+        private static readonly int _Mean = Shader.PropertyToID("_Mean");
+        private static readonly int _StdDev = Shader.PropertyToID("_StdDev");
 
         private static readonly Matrix4x4 PopMatrix = Matrix4x4.Translate(new Vector3(0.5f, 0.5f, 0));
         private static readonly Matrix4x4 PushMatrix = Matrix4x4.Translate(new Vector3(-0.5f, -0.5f, 0));
 
+        public Vector3 Mean { get; set; } = new Vector3(0.485f, 0.456f, 0.406f);
+        public Vector3 Std { get; set; } = new Vector3(0.229f, 0.224f, 0.225f);
 
         private readonly int kernel;
         private readonly RenderTexture texture;
@@ -71,8 +75,11 @@ namespace Microsoft.ML.OnnxRuntime.Unity
             compute.SetTexture(kernel, _InputTex, input, 0);
             compute.SetTexture(kernel, _OutputTex, texture, 0);
             compute.SetBuffer(kernel, _OutputTensor, tensor);
-            compute.SetInts(_OutputSize, texture.width, texture.height);
             compute.SetMatrix(_TransformMatrix, t);
+            compute.SetInts(_OutputSize, texture.width, texture.height);
+            compute.SetFloats(_Mean, Mean.x, Mean.y, Mean.z);
+            compute.SetFloats(_StdDev, Std.x, Std.y, Std.z);
+
             compute.Dispatch(kernel, Mathf.CeilToInt(texture.width / 8f), Mathf.CeilToInt(texture.height / 8f), 1);
 
             tensor.GetData(tensorData);

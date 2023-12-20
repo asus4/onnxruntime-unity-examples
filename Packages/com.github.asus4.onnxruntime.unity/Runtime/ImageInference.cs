@@ -83,7 +83,11 @@ namespace Microsoft.ML.OnnxRuntime.Unity
                 throw new ArgumentException("Image input not found");
             }
 
-            textureToTensor = new TextureToTensor<T>(width, height);
+            textureToTensor = new TextureToTensor<T>(width, height)
+            {
+                Mean = options.mean,
+                Std = options.std
+            };
         }
 
         public void Dispose()

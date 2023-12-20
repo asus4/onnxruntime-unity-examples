@@ -26,11 +26,16 @@ namespace Microsoft.ML.OnnxRuntime.Unity
     [Serializable]
     public class ImageInferenceOptions
     {
+        [Header("Image Preprocessing")]
         [Tooltip("How to resize the image")]
         public AspectMode aspectMode = AspectMode.Fit;
+        public Vector3 mean = new(0.485f, 0.456f, 0.406f);
+        public Vector3 std = new(0.229f, 0.224f, 0.225f);
 
+        [Header("Inference options")]
         [Tooltip("Whether to use GPU")]
         public bool useGPU = false;
+
 
         public SessionOptions CreateSessionOptions()
         {
