@@ -8,9 +8,11 @@ namespace Microsoft.ML.OnnxRuntime.Examples
 {
     /// <summary>
     /// Apple's MobileOne
+    /// See LICENSE for full license information.
     /// https://github.com/apple/ml-mobileone
     /// 
     /// Converted Onnx model from PINTO_model_zoo
+    /// Licensed under MIT.
     /// https://github.com/PINTO0309/PINTO_model_zoo/tree/main/317_MobileOne
     /// </summary>
     public sealed class MobileOne : ImageInference<float>

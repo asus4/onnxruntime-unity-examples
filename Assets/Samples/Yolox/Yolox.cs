@@ -10,32 +10,45 @@ using Unity.Mathematics;
 namespace Microsoft.ML.OnnxRuntime.Examples
 {
     /// <summary>
+    /// Licensed under Apache-2.0.
+    /// See LICENSE for full license information.
     /// https://github.com/Megvii-BaseDetection/YOLOX
     /// 
     /// Converted Onnx model from PINTO_model_zoo
+    /// Licensed under MIT.
     /// https://github.com/PINTO0309/PINTO_model_zoo/tree/main/132_YOLOX
     /// </summary>
     public class Yolox : ImageInference<float>
     {
+        /// <summary>
+        /// Options for Yolox
+        /// </summary>
         [Serializable]
         public class Options : ImageInferenceOptions
         {
             public TextAsset labelFile;
             [Range(0f, 1f)]
             public float probThreshold = 0.3f;
+            [Range(0f, 1f)]
+            public float nmsThreshold = 0.45f;
         }
 
-        public readonly struct Detection
+        public readonly struct Detection : IComparable<Detection>
         {
-            public readonly float4 rect;
             public readonly int label;
+            public readonly Rect rect;
             public readonly float probability;
 
-            public Detection(float4 rect, int label, float probability)
+            public Detection(Rect rect, int label, float probability)
             {
                 this.rect = rect;
                 this.label = label;
                 this.probability = probability;
+            }
+
+            public int CompareTo(Detection other)
+            {
+                return other.probability.CompareTo(probability);
             }
         }
 
@@ -54,13 +67,15 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         }
 
         private const int NUM_CLASSES = 80;
-        private readonly string[] labels;
+        public readonly string[] labels;
         private readonly GridAndStride[] gridStrides;
-        private List<Detection> detections = new();
-        private Options options;
+        private readonly SortedSet<Detection> proposals = new();
+        private readonly List<Detection> picked = new();
+        private readonly Options options;
 
         static readonly ProfilerMarker postProcessPerfMarker = new("Yolox.PostProcess");
 
+        public ReadOnlySpan<string> Labels => labels;
 
         public Yolox(byte[] model, Options options)
             : base(model, options)
@@ -78,14 +93,9 @@ namespace Microsoft.ML.OnnxRuntime.Examples
 
             postProcessPerfMarker.Begin();
             var output = outputs[0].GetTensorDataAsSpan<float>();
-            PostProcess(output);
+            var proposals = GenerateProposals(output, options.probThreshold);
+            NMS(proposals, picked, options.nmsThreshold);
             postProcessPerfMarker.End();
-        }
-
-        private void PostProcess(ReadOnlySpan<float> output)
-        {
-            var detections = GenerateYoloxProposals(output, options.probThreshold);
-            Debug.Log($"detections: {detections.Count}");
         }
 
         private static GridAndStride[] GenerateGridsAndStrides(int width, int height)
@@ -108,9 +118,9 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             return gridStrides.ToArray();
         }
 
-        private List<Detection> GenerateYoloxProposals(ReadOnlySpan<float> feat_blob, float prob_threshold)
+        private SortedSet<Detection> GenerateProposals(ReadOnlySpan<float> feat_blob, float prob_threshold)
         {
-            detections.Clear();
+            proposals.Clear();
 
             int num_anchors = gridStrides.Length;
 
@@ -138,16 +148,40 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                     float box_prob = box_objectness * box_cls_score;
                     if (box_prob > prob_threshold)
                     {
-                        detections.Add(new Detection(
-                            new float4(x0, y0, w, h),
+                        // Insert with sorted descent order
+                        proposals.Add(new Detection(
+                            new Rect(x0, y0, w, h),
                             class_idx,
                             box_prob
                         ));
                     }
-                } // class loop
-            } // point anchor loop
+                }
+            }
 
-            return detections;
+            return proposals;
+        }
+
+        // TODO: Implement multi-class NMS
+        private static void NMS(SortedSet<Detection> faceobjects, List<Detection> picked, float iou_threshold)
+        {
+            picked.Clear();
+
+            foreach (Detection a in faceobjects)
+            {
+                bool keep = true;
+                foreach (Detection b in picked)
+                {
+                    float iou = a.rect.IntersectionOverUnion(b.rect);
+                    if (iou > iou_threshold)
+                    {
+                        keep = false;
+                    }
+                }
+                if (keep)
+                {
+                    picked.Add(a);
+                }
+            }
         }
     }
 }
