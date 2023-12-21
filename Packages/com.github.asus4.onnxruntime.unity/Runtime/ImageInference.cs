@@ -35,6 +35,7 @@ namespace Microsoft.ML.OnnxRuntime.Unity
         // Profilers
         static readonly ProfilerMarker preprocessPerfMarker = new("ImageInference.Preprocess");
         static readonly ProfilerMarker runPerfMarker = new("ImageInference.Session.Run");
+        static readonly ProfilerMarker postprocessPerfMarker = new("ImageInference.Postprocess");
 
         /// <summary>
         /// Create an inference that has Image input
@@ -107,17 +108,32 @@ namespace Microsoft.ML.OnnxRuntime.Unity
 
         public virtual void Run(Texture texture)
         {
-            // Prepare input tensor
+            // Pre process
             preprocessPerfMarker.Begin();
-            textureToTensor.Transform(texture, imageOptions.aspectMode);
-            var inputSpan = inputs[0].GetTensorMutableDataAsSpan<T>();
-            textureToTensor.TensorData.CopyTo(inputSpan);
+            PreProcess(texture);
             preprocessPerfMarker.End();
 
             // Run inference
             runPerfMarker.Begin();
             session.Run(null, inputNames, inputs, outputNames, outputs);
             runPerfMarker.End();
+
+            // Post process
+            postprocessPerfMarker.Begin();
+            PostProcess();
+            postprocessPerfMarker.End();
+        }
+
+        protected virtual void PreProcess(Texture texture)
+        {
+            textureToTensor.Transform(texture, imageOptions.aspectMode);
+            var inputSpan = inputs[0].GetTensorMutableDataAsSpan<T>();
+            textureToTensor.TensorData.CopyTo(inputSpan);
+        }
+
+        protected virtual void PostProcess()
+        {
+            // Override this in subclass
         }
 
         private static (string[], OrtValue[]) AllocateTensors(IReadOnlyDictionary<string, NodeMetadata> metadata)

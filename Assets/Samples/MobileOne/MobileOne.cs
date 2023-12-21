@@ -61,10 +61,8 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             }
         }
 
-        public override void Run(Texture texture)
+        protected override void PostProcess()
         {
-            base.Run(texture);
-
             // Copy scores to labels
             var output = outputs[0].GetTensorDataAsSpan<float>();
             for (int i = 0; i < output.Length; i++)

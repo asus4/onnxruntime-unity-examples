@@ -33,9 +33,10 @@ namespace Microsoft.ML.OnnxRuntime.Unity
         public readonly int width;
         public readonly int height;
 
-        public RenderTexture Texture => texture;
         private readonly T[] tensorData;
+        public RenderTexture Texture => texture;
         public ReadOnlySpan<T> TensorData => tensorData;
+        public Matrix4x4 TransformMatrix { get; private set; } = Matrix4x4.identity;
 
         public TextureToTensor(int width, int height)
         {
@@ -70,8 +71,10 @@ namespace Microsoft.ML.OnnxRuntime.Unity
             tensor.Release();
         }
 
-        public RenderTexture Transform(Texture input, Matrix4x4 t)
+        public void Transform(Texture input, Matrix4x4 t)
         {
+            TransformMatrix = t;
+
             compute.SetTexture(kernel, _InputTex, input, 0);
             compute.SetTexture(kernel, _OutputTex, texture, 0);
             compute.SetBuffer(kernel, _OutputTensor, tensor);
@@ -83,24 +86,29 @@ namespace Microsoft.ML.OnnxRuntime.Unity
             compute.Dispatch(kernel, Mathf.CeilToInt(texture.width / 8f), Mathf.CeilToInt(texture.height / 8f), 1);
 
             tensor.GetData(tensorData);
-            return texture;
         }
 
-        public RenderTexture Transform(Texture input, Vector2 translate, float eulerRotation, Vector2 scale)
+        public void Transform(Texture input, Vector2 translate, float eulerRotation, Vector2 scale)
         {
             Matrix4x4 trs = Matrix4x4.TRS(
                 translate,
                 Quaternion.Euler(0, 0, -eulerRotation),
                 new Vector3(scale.x, scale.y, 1));
-            return Transform(input, PopMatrix * trs * PushMatrix);
+            Transform(input, PopMatrix * trs * PushMatrix);
         }
 
-        public RenderTexture Transform(Texture input, AspectMode aspectMode)
+        public void Transform(Texture input, AspectMode aspectMode)
+        {
+            Transform(input, GetAspectScaledMatrix(input, aspectMode));
+        }
+
+        public Matrix4x4 GetAspectScaledMatrix(Texture input, AspectMode aspectMode)
         {
             float srcAspect = (float)input.width / input.height;
             float dstAspect = (float)width / height;
             Vector2 scale = GetAspectScale(srcAspect, dstAspect, aspectMode);
-            return Transform(input, Vector3.zero, 0, scale);
+            Matrix4x4 scaleMatrix = Matrix4x4.Scale(new Vector3(scale.x, scale.y, 1));
+            return PopMatrix * scaleMatrix * PushMatrix;
         }
 
         public static Vector2 GetAspectScale(float srcAspect, float dstAspect, AspectMode mode)
