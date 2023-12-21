@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using Microsoft.ML.OnnxRuntime.Unity;
 using UnityEngine;
 using UnityEngine.Assertions;
-using Unity.Profiling;
 using Unity.Mathematics;
 
 
@@ -64,6 +64,26 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                 this.grid1 = grid1;
                 this.stride = stride;
             }
+
+            public static GridAndStride[] GenerateGridsAndStrides(int width, int height)
+            {
+                ReadOnlySpan<int> strides = stackalloc int[] { 8, 16, 32 };
+                List<GridAndStride> gridStrides = new();
+
+                foreach (int stride in strides)
+                {
+                    int numGridY = height / stride;
+                    int numGridX = width / stride;
+                    for (int g1 = 0; g1 < numGridY; g1++)
+                    {
+                        for (int g0 = 0; g0 < numGridX; g0++)
+                        {
+                            gridStrides.Add(new GridAndStride(g0, g1, stride));
+                        }
+                    }
+                }
+                return gridStrides.ToArray();
+            }
         }
 
         private const int NUM_CLASSES = 80;
@@ -73,9 +93,8 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         private readonly List<Detection> picked = new();
         private readonly Options options;
 
-        static readonly ProfilerMarker postProcessPerfMarker = new("Yolox.PostProcess");
-
         public ReadOnlySpan<string> Labels => labels;
+        public ReadOnlyCollection<Detection> Detections => picked.AsReadOnly();
 
         public Yolox(byte[] model, Options options)
             : base(model, options)
@@ -84,38 +103,35 @@ namespace Microsoft.ML.OnnxRuntime.Examples
 
             labels = options.labelFile.text.Split('\n', StringSplitOptions.RemoveEmptyEntries);
             Assert.AreEqual(NUM_CLASSES, labels.Length);
-            gridStrides = GenerateGridsAndStrides(width, height);
+            gridStrides = GridAndStride.GenerateGridsAndStrides(width, height);
         }
 
-        public override void Run(Texture texture)
+        protected override void PostProcess()
         {
-            base.Run(texture);
-
-            postProcessPerfMarker.Begin();
             var output = outputs[0].GetTensorDataAsSpan<float>();
             var proposals = GenerateProposals(output, options.probThreshold);
             NMS(proposals, picked, options.nmsThreshold);
-            postProcessPerfMarker.End();
         }
 
-        private static GridAndStride[] GenerateGridsAndStrides(int width, int height)
+        /// <summary>
+        /// Normalize model space rect to Unity space (0, 0, 1, 1)
+        /// </summary>
+        /// <param name="rect"></param>
+        /// <returns></returns>
+        public Rect NormalizeToUnity(in Rect rect)
         {
-            ReadOnlySpan<int> strides = stackalloc int[] { 8, 16, 32 };
-            List<GridAndStride> gridStrides = new();
+            // var mtx = textureToTensor.TransformMatrix.inverse;
+            var mtx = Matrix4x4.identity;
 
-            foreach (int stride in strides)
-            {
-                int numGridY = height / stride;
-                int numGridX = width / stride;
-                for (int g1 = 0; g1 < numGridY; g1++)
-                {
-                    for (int g0 = 0; g0 < numGridX; g0++)
-                    {
-                        gridStrides.Add(new GridAndStride(g0, g1, stride));
-                    }
-                }
-            }
-            return gridStrides.ToArray();
+            float left = rect.xMin / width;
+            float right = rect.xMax / width;
+            float top = 1f - rect.yMin / height;
+            float bottom = 1f - rect.yMax / height;
+
+            Vector2 min = mtx.MultiplyPoint3x4(new Vector2(left, bottom));
+            Vector2 max = mtx.MultiplyPoint3x4(new Vector2(right, top));
+
+            return new Rect(min, max - min);
         }
 
         private SortedSet<Detection> GenerateProposals(ReadOnlySpan<float> feat_blob, float prob_threshold)

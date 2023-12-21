@@ -310,7 +310,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 86710e43de46f6f4bac7c8e50813a599, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_AspectMode: 4
+  m_AspectMode: 3
   m_AspectRatio: 1
 --- !u!1 &705507993
 GameObject:
@@ -466,8 +466,8 @@ Camera:
   m_GameObject: {fileID: 963194225}
   m_Enabled: 1
   serializedVersion: 2
-  m_ClearFlags: 1
-  m_BackGroundColor: {r: 0.19215687, g: 0.3019608, b: 0.4745098, a: 0}
+  m_ClearFlags: 2
+  m_BackGroundColor: {r: 0, g: 0, b: 0, a: 0}
   m_projectionMatrixMode: 1
   m_GateFitMode: 2
   m_FOVAxisMode: 0
@@ -629,7 +629,7 @@ MonoBehaviour:
           m_FloatArgument: 0
           m_StringArgument: 
           m_BoolArgument: 0
-        m_CallState: 2
+        m_CallState: 0
   OnAspectChange:
     m_PersistentCalls:
       m_Calls:
@@ -644,7 +644,7 @@ MonoBehaviour:
           m_FloatArgument: 0
           m_StringArgument: 
           m_BoolArgument: 0
-        m_CallState: 2
+        m_CallState: 0
 --- !u!114 &1926674703
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -667,8 +667,9 @@ MonoBehaviour:
     probThreshold: 0.3
     nmsThreshold: 0.45
   detectionBoxPrefab: {fileID: 5453284232671403399, guid: 549855c05cfb843a1b851d9138f2997a, type: 3}
-  detectionBoxParent: {fileID: 429657176}
+  detectionContainer: {fileID: 429657176}
   maxDetections: 20
+  inputImage: {fileID: 429657177}
 --- !u!1 &1965107666
 GameObject:
   m_ObjectHideFlags: 0
