@@ -884,7 +884,7 @@ MonoBehaviour:
     aspectMode: 1
     mean: {x: 0.485, y: 0.456, z: 0.406}
     std: {x: 0.229, y: 0.224, z: 0.225}
-    useGPU: 0
+    useGPU: 1
     labelFile: {fileID: 4900000, guid: 4d3c55d55c69948b98a32b8d01d7f396, type: 3}
     probThreshold: 0.3
     nmsThreshold: 0.45

@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using Microsoft.ML.OnnxRuntime.Unity;
 using UnityEngine;
 using UnityEngine.Assertions;
+using Unity.Collections;
 using Unity.Mathematics;
 
 
@@ -27,6 +27,8 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         public class Options : ImageInferenceOptions
         {
             public TextAsset labelFile;
+            [Range(1, 100)]
+            public int maxDetections = 100;
             [Range(0f, 1f)]
             public float probThreshold = 0.3f;
             [Range(0f, 1f)]
@@ -89,28 +91,42 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         private const int NUM_CLASSES = 80;
         public readonly string[] labels;
         private readonly Anchor[] anchors;
-        private readonly SortedSet<Detection> proposals = new();
-        private readonly List<Detection> picked = new();
         private readonly Options options;
 
+        private NativeArray<Detection> proposalsArray;
+        private NativeArray<Detection> pickedArray;
+        private int detectionCount = 0;
+
         public ReadOnlySpan<string> LabelNames => labels;
-        public ReadOnlyCollection<Detection> Detections => picked.AsReadOnly();
+        public ReadOnlySpan<Detection> Detections => pickedArray.AsReadOnlySpan()[..detectionCount];
 
         public Yolox(byte[] model, Options options)
             : base(model, options)
         {
             this.options = options;
 
+            int maxDetections = options.maxDetections;
+            proposalsArray = new NativeArray<Detection>(maxDetections, Allocator.Persistent);
+            pickedArray = new NativeArray<Detection>(maxDetections, Allocator.Persistent);
+
             labels = options.labelFile.text.Split('\n', StringSplitOptions.RemoveEmptyEntries);
             Assert.AreEqual(NUM_CLASSES, labels.Length);
             anchors = Anchor.GenerateAnchors(width, height);
+        }
+
+        public override void Dispose()
+        {
+            base.Dispose();
+            proposalsArray.Dispose();
+            pickedArray.Dispose();
         }
 
         protected override void PostProcess()
         {
             var output = outputs[0].GetTensorDataAsSpan<float>();
             var proposals = GenerateProposals(output, options.probThreshold);
-            NMS(proposals, picked, options.nmsThreshold);
+            proposals.Sort();
+            detectionCount = NMS(proposals, pickedArray, options.nmsThreshold);
         }
 
         /// <summary>
@@ -127,14 +143,15 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             return new Rect(min, max - min);
         }
 
-        private SortedSet<Detection> GenerateProposals(ReadOnlySpan<float> feat_blob, float prob_threshold)
+        private NativeSlice<Detection> GenerateProposals(
+            in ReadOnlySpan<float> feat_blob, float prob_threshold)
         {
-            proposals.Clear();
-
             int num_anchors = anchors.Length;
 
             float widthScale = 1f / width;
             float heightScale = 1f / height;
+
+            int proposalsCount = 0;
 
             for (int anchor_idx = 0; anchor_idx < num_anchors; anchor_idx++)
             {
@@ -173,27 +190,48 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                     if (box_prob > prob_threshold)
                     {
                         // Insert with sorted descent order
-                        proposals.Add(new Detection(
+                        proposalsArray[proposalsCount] = new Detection(
                             new Rect(x0, y0, w, h),
                             class_idx,
                             box_prob
-                        ));
+                        );
+                        proposalsCount++;
+
+                        if (proposalsCount >= proposalsArray.Length)
+                        {
+                            break;
+                        }
                     }
+                }
+
+                if (proposalsCount >= proposalsArray.Length)
+                {
+                    break;
                 }
             }
 
-            return proposals;
+            if (proposalsCount == 0)
+            {
+                return proposalsArray.Slice(0, 0);
+            }
+
+            return proposalsArray.Slice(0, Math.Min(proposalsCount, proposalsArray.Length));
         }
 
-        private static void NMS(SortedSet<Detection> proposals, List<Detection> picked, float iou_threshold)
+        private static int NMS(
+            in NativeSlice<Detection> proposals,
+            NativeArray<Detection> picked,
+            float iou_threshold)
         {
-            picked.Clear();
+            int pickedCount = 0;
 
             foreach (Detection a in proposals)
             {
                 bool keep = true;
-                foreach (Detection b in picked)
+                for (int i = 0; i < pickedCount; i++)
                 {
+                    Detection b = picked[i];
+
                     // Ignore different classes
                     if (b.label != a.label)
                     {
@@ -207,9 +245,12 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                 }
                 if (keep)
                 {
-                    picked.Add(a);
+                    picked[pickedCount] = a;
+                    pickedCount++;
                 }
             }
+
+            return pickedCount;
         }
     }
 }

@@ -76,7 +76,7 @@ public class YoloxSample : MonoBehaviour
         Vector2 size = detectionContainer.rect.size;
 
         int i;
-        int length = Math.Min(detections.Count, maxDetections);
+        int length = Math.Min(detections.Length, maxDetections);
         for (i = 0; i < length; i++)
         {
             var detection = detections[i];
