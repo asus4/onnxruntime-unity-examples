@@ -24,11 +24,9 @@ namespace Microsoft.ML.OnnxRuntime.Editor
             {
                 case BuildTarget.iOS:
                     PostprocessBuildIOS(report);
-                    // No need to remove __ENABLE_COREML__ because is's supported on macOS as well
-                    OrtBuildHelper.RemoveDefine(NamedBuildTarget.iOS, "__IOS__");
                     break;
                 case BuildTarget.Android:
-                    OrtBuildHelper.RemoveDefine(NamedBuildTarget.Android, "__ANDROID__");
+                    // Nothing to do
                     break;
                 // TODO: Add support for other platforms
                 default:

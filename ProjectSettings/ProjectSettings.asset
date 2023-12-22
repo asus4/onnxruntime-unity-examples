@@ -835,9 +835,9 @@ PlayerSettings:
   webGLMemoryGeometricGrowthCap: 96
   webGLPowerPreference: 2
   scriptingDefineSymbols:
-    Android: __ANDROID__
-    Standalone: __ENABLE_COREML__
-    iPhone: __ENABLE_COREML__;__IOS__
+    Android: 
+    Standalone: 
+    iPhone: 
   additionalCompilerArguments: {}
   platformArchitecture: {}
   scriptingBackend:
