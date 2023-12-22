@@ -10,8 +10,8 @@ namespace Microsoft.ML.OnnxRuntime.Examples
     [RequireComponent(typeof(Button))]
     public sealed class GoToSceneButton : MonoBehaviour
     {
+        [Tooltip("The name of the scene to load.")]
         public string sceneName;
-        public LoadSceneMode loadSceneMode = LoadSceneMode.Single;
 
         private void OnEnable()
         {
@@ -31,7 +31,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
 
         private void OnClick()
         {
-            SceneManager.LoadScene(sceneName, loadSceneMode);
+            SceneManager.LoadScene(sceneName);
         }
     }
 }
