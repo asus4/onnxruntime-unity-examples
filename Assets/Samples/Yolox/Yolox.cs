@@ -114,23 +114,16 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         }
 
         /// <summary>
-        /// Normalize model space rect to Unity space (0, 0, 1, 1)
+        ///  Convert CV rect to Viewport space
         /// </summary>
-        /// <param name="rect"></param>
+        /// <param name="rect">A Normalized Rect, input should be 0 - 1</param>
         /// <returns></returns>
-        public Rect NormalizeToUnity(in Rect rect)
+        public Rect ConvertToViewport(in Rect rect)
         {
-            // var mtx = textureToTensor.TransformMatrix.inverse;
-            var mtx = Matrix4x4.identity;
-
-            float left = rect.xMin / width;
-            float right = rect.xMax / width;
-            float top = 1f - rect.yMin / height;
-            float bottom = 1f - rect.yMax / height;
-
-            Vector2 min = mtx.MultiplyPoint3x4(new Vector2(left, bottom));
-            Vector2 max = mtx.MultiplyPoint3x4(new Vector2(right, top));
-
+            Rect unityRect = rect.FlipY();
+            var mtx = InputToViewportMatrix;
+            Vector2 min = mtx.MultiplyPoint3x4(unityRect.min);
+            Vector2 max = mtx.MultiplyPoint3x4(unityRect.max);
             return new Rect(min, max - min);
         }
 
@@ -139,6 +132,9 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             proposals.Clear();
 
             int num_anchors = gridStrides.Length;
+
+            float widthScale = 1f / width;
+            float heightScale = 1f / height;
 
             for (int anchor_idx = 0; anchor_idx < num_anchors; anchor_idx++)
             {
@@ -154,6 +150,17 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                 float y_center = (feat_blob[basic_pos + 1] + grid1) * stride;
                 float w = math.exp(feat_blob[basic_pos + 2]) * stride;
                 float h = math.exp(feat_blob[basic_pos + 3]) * stride;
+                // Normalize model space to 0..1
+                x_center *= widthScale;
+                y_center *= heightScale;
+                w *= widthScale;
+                h *= heightScale;
+                // Skip center in trimmed are 
+                if (x_center < 0 || x_center > 1 || y_center < 0 || y_center > 1)
+                {
+                    continue;
+                }
+
                 float x0 = x_center - w * 0.5f;
                 float y0 = y_center - h * 0.5f;
 

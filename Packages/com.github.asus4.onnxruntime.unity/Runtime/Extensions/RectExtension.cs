@@ -74,5 +74,17 @@ namespace Microsoft.ML.OnnxRuntime.Unity
             float intersectArea = intersection.Area();
             return intersectArea / (area0 + area1 - intersectArea);
         }
+
+        /// <summary>
+        /// Flip Y axis, useful for converting between CV and Unity space
+        /// </summary>
+        /// <param name="rect">A rect</param>
+        /// <param name="height">Height of the space</param>
+        /// <returns>A flipped rect</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Rect FlipY(this in Rect rect, float height = 1f)
+        {
+            return new Rect(rect.x, height - rect.yMax, rect.width, rect.height);
+        }
     }
 }

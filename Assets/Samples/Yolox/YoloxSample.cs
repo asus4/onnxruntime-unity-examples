@@ -1,9 +1,9 @@
 using System;
+using System.Text;
 using Microsoft.ML.OnnxRuntime.Unity;
 using Microsoft.ML.OnnxRuntime.Examples;
 using TextureSource;
 using UnityEngine;
-using UnityEngine.UI;
 
 [RequireComponent(typeof(VirtualTextureSource))]
 public class YoloxSample : MonoBehaviour
@@ -24,11 +24,9 @@ public class YoloxSample : MonoBehaviour
     [SerializeField]
     private int maxDetections = 20;
 
-    [SerializeField]
-    private RawImage inputImage;
-
     private Yolox inference;
     private TMPro.TMP_Text[] detectionBoxes;
+    private readonly StringBuilder sb = new();
 
     private void Start()
     {
@@ -68,7 +66,6 @@ public class YoloxSample : MonoBehaviour
 
         inference.Run(texture);
 
-        inputImage.texture = inference.InputTexture;
         UpdateDetectionBox();
     }
 
@@ -84,13 +81,20 @@ public class YoloxSample : MonoBehaviour
         {
             var detection = detections[i];
             string label = labels[detection.label];
-            Rect rect = inference.NormalizeToUnity(detection.rect);
-            float probability = detection.probability;
 
             var box = detectionBoxes[i];
             box.gameObject.SetActive(true);
-            box.text = $"{label}: {(int)(probability * 100)}%";
+
+            // Using StringBuilder to reduce GC
+            sb.Clear();
+            sb.Append(label);
+            sb.Append(": ");
+            sb.Append((int)(detection.probability * 100));
+            sb.Append('%');
+            box.SetText(sb);
+
             RectTransform rt = box.rectTransform;
+            Rect rect = inference.ConvertToViewport(detection.rect);
             rt.anchoredPosition = rect.min * size;
             rt.sizeDelta = rect.size * size;
         }

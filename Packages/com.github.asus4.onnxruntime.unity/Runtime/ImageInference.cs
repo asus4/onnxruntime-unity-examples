@@ -31,6 +31,7 @@ namespace Microsoft.ML.OnnxRuntime.Unity
         protected readonly int width;
 
         public Texture InputTexture => textureToTensor.Texture;
+        public Matrix4x4 InputToViewportMatrix => textureToTensor.TransformMatrix;
 
         // Profilers
         static readonly ProfilerMarker preprocessPerfMarker = new("ImageInference.Preprocess");
@@ -93,6 +94,9 @@ namespace Microsoft.ML.OnnxRuntime.Unity
 
         public void Dispose()
         {
+            textureToTensor?.Dispose();
+            session?.Dispose();
+            sessionOptions?.Dispose();
             foreach (var ortValue in inputs)
             {
                 ortValue.Dispose();
@@ -101,9 +105,6 @@ namespace Microsoft.ML.OnnxRuntime.Unity
             {
                 ortValue.Dispose();
             }
-            textureToTensor?.Dispose();
-            session?.Dispose();
-            sessionOptions?.Dispose();
         }
 
         public virtual void Run(Texture texture)
