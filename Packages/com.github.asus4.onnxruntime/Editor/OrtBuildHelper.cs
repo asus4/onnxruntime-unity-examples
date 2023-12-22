@@ -13,14 +13,25 @@ namespace Microsoft.ML.OnnxRuntime.Editor
         {
             PlayerSettings.GetScriptingDefineSymbols(target, out string[] defines);
             var newDefines = defines.Concat(adds).Distinct().ToArray();
-            PlayerSettings.SetScriptingDefineSymbols(target, newDefines);
+            if (HasChanges(defines, newDefines))
+            {
+                PlayerSettings.SetScriptingDefineSymbols(target, newDefines);
+            }
         }
 
         public static void RemoveDefine(NamedBuildTarget target, params string[] removes)
         {
             PlayerSettings.GetScriptingDefineSymbols(target, out string[] defines);
             var newDefines = defines.Except(removes).ToArray();
-            PlayerSettings.SetScriptingDefineSymbols(target, newDefines);
+            if (HasChanges(defines, newDefines))
+            {
+                PlayerSettings.SetScriptingDefineSymbols(target, newDefines);
+            }
+        }
+
+        private static bool HasChanges(string[] a, string[] b)
+        {
+            return a.Length != b.Length || a.Except(b).Any();
         }
 
         [InitializeOnLoadMethod]
