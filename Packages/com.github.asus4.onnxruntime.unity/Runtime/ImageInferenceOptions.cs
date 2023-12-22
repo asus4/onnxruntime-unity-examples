@@ -74,7 +74,7 @@ namespace Microsoft.ML.OnnxRuntime.Unity
                     break;
                 case RuntimePlatform.Android:
                     options.AppendExecutionProvider_Nnapi(
-                        NnapiFlags.NNAPI_FLAG_USE_FP16);
+                        NnapiFlags.NNAPI_FLAG_USE_FP16 | NnapiFlags.NNAPI_FLAG_CPU_DISABLED);
                     Debug.Log("NNAPI is enabled");
                     break;
                 case RuntimePlatform.WindowsEditor:

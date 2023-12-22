@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Linq;
 using System.IO;
 using Microsoft.ML.OnnxRuntime.Examples;
@@ -5,7 +6,10 @@ using UnityEngine;
 using UnityEngine.Assertions;
 using UnityEngine.SceneManagement;
 
-public class IndexScene : MonoBehaviour
+/// <summary>
+/// Entry point of the sample app
+/// </summary>
+public sealed class IndexScene : MonoBehaviour
 {
     [SerializeField]
     private RectTransform buttonContainer;
@@ -16,11 +20,17 @@ public class IndexScene : MonoBehaviour
     [SerializeField]
     private string[] sceneNames;
 
-
-    private void Start()
+    private IEnumerator Start()
     {
+        // Need the WebCam Authorization before using Camera on mobile devices
+        if (!Application.HasUserAuthorization(UserAuthorization.WebCam))
+        {
+            yield return Application.RequestUserAuthorization(UserAuthorization.WebCam);
+        }
+
         ValidateSceneNames();
 
+        // Add buttons
         foreach (var sceneName in sceneNames)
         {
             var button = Instantiate(buttonPrefab, buttonContainer);
