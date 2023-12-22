@@ -71,7 +71,7 @@ public class YoloxSample : MonoBehaviour
 
     private void UpdateDetectionBox()
     {
-        var labels = inference.Labels;
+        var labels = inference.LabelNames;
         var detections = inference.Detections;
         Vector2 size = detectionContainer.rect.size;
 
@@ -93,11 +93,14 @@ public class YoloxSample : MonoBehaviour
             sb.Append('%');
             box.SetText(sb);
 
+            // The detection rect is model space
+            // Needs to be converted to viewport space
             RectTransform rt = box.rectTransform;
             Rect rect = inference.ConvertToViewport(detection.rect);
             rt.anchoredPosition = rect.min * size;
             rt.sizeDelta = rect.size * size;
         }
+        // Hide unused boxes
         for (; i < maxDetections; i++)
         {
             detectionBoxes[i].gameObject.SetActive(false);

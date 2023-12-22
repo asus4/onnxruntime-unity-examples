@@ -52,23 +52,23 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             }
         }
 
-        private readonly struct GridAndStride
+        private readonly struct Anchor
         {
             public readonly int grid0;
             public readonly int grid1;
             public readonly int stride;
 
-            public GridAndStride(int grid0, int grid1, int stride)
+            public Anchor(int grid0, int grid1, int stride)
             {
                 this.grid0 = grid0;
                 this.grid1 = grid1;
                 this.stride = stride;
             }
 
-            public static GridAndStride[] GenerateGridsAndStrides(int width, int height)
+            public static Anchor[] GenerateAnchors(int width, int height)
             {
                 ReadOnlySpan<int> strides = stackalloc int[] { 8, 16, 32 };
-                List<GridAndStride> gridStrides = new();
+                List<Anchor> anchors = new();
 
                 foreach (int stride in strides)
                 {
@@ -78,22 +78,22 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                     {
                         for (int g0 = 0; g0 < numGridX; g0++)
                         {
-                            gridStrides.Add(new GridAndStride(g0, g1, stride));
+                            anchors.Add(new Anchor(g0, g1, stride));
                         }
                     }
                 }
-                return gridStrides.ToArray();
+                return anchors.ToArray();
             }
         }
 
         private const int NUM_CLASSES = 80;
         public readonly string[] labels;
-        private readonly GridAndStride[] gridStrides;
+        private readonly Anchor[] anchors;
         private readonly SortedSet<Detection> proposals = new();
         private readonly List<Detection> picked = new();
         private readonly Options options;
 
-        public ReadOnlySpan<string> Labels => labels;
+        public ReadOnlySpan<string> LabelNames => labels;
         public ReadOnlyCollection<Detection> Detections => picked.AsReadOnly();
 
         public Yolox(byte[] model, Options options)
@@ -103,7 +103,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
 
             labels = options.labelFile.text.Split('\n', StringSplitOptions.RemoveEmptyEntries);
             Assert.AreEqual(NUM_CLASSES, labels.Length);
-            gridStrides = GridAndStride.GenerateGridsAndStrides(width, height);
+            anchors = Anchor.GenerateAnchors(width, height);
         }
 
         protected override void PostProcess()
@@ -131,17 +131,17 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         {
             proposals.Clear();
 
-            int num_anchors = gridStrides.Length;
+            int num_anchors = anchors.Length;
 
             float widthScale = 1f / width;
             float heightScale = 1f / height;
 
             for (int anchor_idx = 0; anchor_idx < num_anchors; anchor_idx++)
             {
-                var grid = gridStrides[anchor_idx];
-                int grid0 = grid.grid0;
-                int grid1 = grid.grid1;
-                int stride = grid.stride;
+                var anchor = anchors[anchor_idx];
+                int grid0 = anchor.grid0;
+                int grid1 = anchor.grid1;
+                int stride = anchor.stride;
 
                 int basic_pos = anchor_idx * (NUM_CLASSES + 5);
 
@@ -155,7 +155,8 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                 y_center *= heightScale;
                 w *= widthScale;
                 h *= heightScale;
-                // Skip center in trimmed are 
+
+                // Skip if out of bounds
                 if (x_center < 0 || x_center > 1 || y_center < 0 || y_center > 1)
                 {
                     continue;
@@ -184,12 +185,11 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             return proposals;
         }
 
-        // TODO: Implement multi-class NMS
-        private static void NMS(SortedSet<Detection> faceobjects, List<Detection> picked, float iou_threshold)
+        private static void NMS(SortedSet<Detection> proposals, List<Detection> picked, float iou_threshold)
         {
             picked.Clear();
 
-            foreach (Detection a in faceobjects)
+            foreach (Detection a in proposals)
             {
                 bool keep = true;
                 foreach (Detection b in picked)
