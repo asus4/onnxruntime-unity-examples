@@ -6,6 +6,12 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
+    path: Assets/Samples/Index/Index.unity
+    guid: 2475e5c6d99f1481d8c509ae3d14a56b
+  - enabled: 1
     path: Assets/Samples/MobileOne/MobileOne.unity
     guid: 68778029a7c6d4c7bbe22540a78daf2c
+  - enabled: 1
+    path: Assets/Samples/Yolox/Yolox.unity
+    guid: aa15b889fb4b3449b927fc9f3776baa7
   m_configObjects: {}
