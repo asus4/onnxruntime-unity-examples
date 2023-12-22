@@ -194,6 +194,11 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                 bool keep = true;
                 foreach (Detection b in picked)
                 {
+                    // Ignore different classes
+                    if (b.label != a.label)
+                    {
+                        continue;
+                    }
                     float iou = a.rect.IntersectionOverUnion(b.rect);
                     if (iou > iou_threshold)
                     {
