@@ -92,7 +92,7 @@ namespace Microsoft.ML.OnnxRuntime.Unity
             };
         }
 
-        public void Dispose()
+        public virtual void Dispose()
         {
             textureToTensor?.Dispose();
             session?.Dispose();
