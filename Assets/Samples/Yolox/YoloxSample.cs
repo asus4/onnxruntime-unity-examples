@@ -66,14 +66,13 @@ public class YoloxSample : MonoBehaviour
 
         inference.Run(texture);
 
-        UpdateDetectionBox();
+        UpdateDetectionBox(inference.Detections);
     }
 
-    private void UpdateDetectionBox()
+    private void UpdateDetectionBox(ReadOnlySpan<Yolox.Detection> detections)
     {
-        var labels = inference.LabelNames;
-        var detections = inference.Detections;
-        Vector2 size = detectionContainer.rect.size;
+        var labels = inference.labelNames;
+        Vector2 viewportSize = detectionContainer.rect.size;
 
         int i;
         int length = Math.Min(detections.Length, maxDetections);
@@ -97,8 +96,8 @@ public class YoloxSample : MonoBehaviour
             // Needs to be converted to viewport space
             RectTransform rt = box.rectTransform;
             Rect rect = inference.ConvertToViewport(detection.rect);
-            rt.anchoredPosition = rect.min * size;
-            rt.sizeDelta = rect.size * size;
+            rt.anchoredPosition = rect.min * viewportSize;
+            rt.sizeDelta = rect.size * viewportSize;
         }
         // Hide unused boxes
         for (; i < maxDetections; i++)

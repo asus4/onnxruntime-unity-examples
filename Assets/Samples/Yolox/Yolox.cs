@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using Microsoft.ML.OnnxRuntime.Unity;
 using UnityEngine;
 using UnityEngine.Assertions;
@@ -88,17 +89,16 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             }
         }
 
+        public readonly ReadOnlyCollection<string> labelNames;
         private const int NUM_CLASSES = 80;
-        public readonly string[] labels;
         private readonly Anchor[] anchors;
         private readonly Options options;
 
         private NativeArray<Detection> proposalsArray;
-        private NativeArray<Detection> pickedArray;
+        private NativeArray<Detection> detectionsArray;
         private int detectionCount = 0;
 
-        public ReadOnlySpan<string> LabelNames => labels;
-        public ReadOnlySpan<Detection> Detections => pickedArray.AsReadOnlySpan()[..detectionCount];
+        public ReadOnlySpan<Detection> Detections => detectionsArray.AsReadOnlySpan()[..detectionCount];
 
         public Yolox(byte[] model, Options options)
             : base(model, options)
@@ -107,10 +107,11 @@ namespace Microsoft.ML.OnnxRuntime.Examples
 
             int maxDetections = options.maxDetections;
             proposalsArray = new NativeArray<Detection>(maxDetections, Allocator.Persistent);
-            pickedArray = new NativeArray<Detection>(maxDetections, Allocator.Persistent);
+            detectionsArray = new NativeArray<Detection>(maxDetections, Allocator.Persistent);
 
-            labels = options.labelFile.text.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-            Assert.AreEqual(NUM_CLASSES, labels.Length);
+            var labels = options.labelFile.text.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            labelNames = Array.AsReadOnly(labels);
+            Assert.AreEqual(NUM_CLASSES, labelNames.Count);
             anchors = Anchor.GenerateAnchors(width, height);
         }
 
@@ -118,7 +119,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         {
             base.Dispose();
             proposalsArray.Dispose();
-            pickedArray.Dispose();
+            detectionsArray.Dispose();
         }
 
         protected override void PostProcess()
@@ -126,7 +127,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             var output = outputs[0].GetTensorDataAsSpan<float>();
             var proposals = GenerateProposals(output, options.probThreshold);
             proposals.Sort();
-            detectionCount = NMS(proposals, pickedArray, options.nmsThreshold);
+            detectionCount = NMS(proposals, detectionsArray, options.nmsThreshold);
         }
 
         /// <summary>
@@ -143,6 +144,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             return new Rect(min, max - min);
         }
 
+        // TODO: consider using Burst
         private NativeSlice<Detection> GenerateProposals(
             in ReadOnlySpan<float> feat_blob, float prob_threshold)
         {
@@ -220,17 +222,17 @@ namespace Microsoft.ML.OnnxRuntime.Examples
 
         private static int NMS(
             in NativeSlice<Detection> proposals,
-            NativeArray<Detection> picked,
+            NativeArray<Detection> detections,
             float iou_threshold)
         {
-            int pickedCount = 0;
+            int detectedCount = 0;
 
             foreach (Detection a in proposals)
             {
                 bool keep = true;
-                for (int i = 0; i < pickedCount; i++)
+                for (int i = 0; i < detectedCount; i++)
                 {
-                    Detection b = picked[i];
+                    Detection b = detections[i];
 
                     // Ignore different classes
                     if (b.label != a.label)
@@ -245,12 +247,12 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                 }
                 if (keep)
                 {
-                    picked[pickedCount] = a;
-                    pickedCount++;
+                    detections[detectedCount] = a;
+                    detectedCount++;
                 }
             }
 
-            return pickedCount;
+            return detectedCount;
         }
     }
 }
