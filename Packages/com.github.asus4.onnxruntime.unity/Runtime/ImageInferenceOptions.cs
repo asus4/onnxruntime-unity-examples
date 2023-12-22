@@ -74,6 +74,10 @@ namespace Microsoft.ML.OnnxRuntime.Unity
                     break;
                 case RuntimePlatform.Android:
                     options.AppendExecutionProvider_Nnapi(
+                        // NNApi can fallback to CPU if GPU is not available.
+                        // But in general, it will be slower than OnnxRuntime CPU inference.
+                        // Thus, we disable CPU fallback.
+                        // It throws an exception if GPU is not available.
                         NnapiFlags.NNAPI_FLAG_USE_FP16 | NnapiFlags.NNAPI_FLAG_CPU_DISABLED);
                     Debug.Log("NNAPI is enabled");
                     break;
