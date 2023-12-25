@@ -20,6 +20,12 @@ public sealed class IndexScene : MonoBehaviour
     [SerializeField]
     private string[] sceneNames;
 
+    private void Awake()
+    {
+        Application.targetFrameRate = 60;
+        Screen.sleepTimeout = SleepTimeout.NeverSleep;
+    }
+
     private IEnumerator Start()
     {
         // Need the WebCam Authorization before using Camera on mobile devices
