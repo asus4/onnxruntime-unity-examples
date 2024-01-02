@@ -4,15 +4,12 @@
 
 Examples and pre-built ONNX Runtime libraries for Unity.
 
-
-
 https://github.com/asus4/onnxruntime-unity-examples/assets/357497/96ed9913-41b7-401d-a634-f0e2de4fc3c7
-
-
 
 ## Tested environment
 
-- Unity 2022.3.12f1 (LTS)
+- Unity: 2022.3.12f1 (LTS)
+- ONNX Runtime: 1.16.3
 - macOS, iOS, Android
 
 ## How to Run
@@ -50,7 +47,7 @@ On the mobile platform, the *.onnx model is not recommended, although it's suppo
 
 Please refer to the [ORT model format](https://onnxruntime.ai/docs/performance/model-optimizations/ort-format-models.html) for more details.
 
-__TL;DR;__
+**TL;DR;**
 
 ```sh
 # Recommend using python virtual environment
@@ -60,7 +57,7 @@ pip install onnxruntime
 # In general,
 # Use --optimization_style Runtime, when running on mobile GPU
 # Use --optimization_style Fixed, when running on mobile CPU
-python -m onnxruntime.tools.convert_onnx_models_to_ort mobileone_s4_224x224.onnx --optimization_style Runtime
+python -m onnxruntime.tools.convert_onnx_models_to_ort your_onnx_file.onnx --optimization_style Runtime
 ```
 
 ## Links for libraries
