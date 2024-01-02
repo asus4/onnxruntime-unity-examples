@@ -2,14 +2,28 @@
 
 [![npm](https://img.shields.io/npm/v/com.github.asus4.onnxruntime?label=npm)](https://www.npmjs.com/package/com.github.asus4.onnxruntime)
 
-Some examples and pre-built ONNX Runtime libraries for Unity.
+Examples and pre-built ONNX Runtime libraries for Unity.
+
+
+
+https://github.com/asus4/onnxruntime-unity-examples/assets/357497/96ed9913-41b7-401d-a634-f0e2de4fc3c7
+
+
 
 ## Tested environment
 
 - Unity 2022.3.12f1 (LTS)
 - macOS, iOS, Android
 
-## Install via Unity Package Manager
+## How to Run
+
+### Test all examples
+
+Pull this repository with **[Git-LFS](https://git-lfs.com/)**
+
+### Install pre-built ONNX Runtime via Unity Package Manager (UPM)
+
+Add the following `scopedRegistries` and `dependencies` in `Packages/manifest.json`.
 
 ```json
   "scopedRegistries": [
@@ -30,9 +44,9 @@ Some examples and pre-built ONNX Runtime libraries for Unity.
   }
 ```
 
-## How to convert onnx to ort format
+## How to convert Onnx to Ort format
 
-On the mobile platform, the *.onnx model is not supported, while it's supported on the desktop. Please convert the onnx model to ort format.
+On the mobile platform, the *.onnx model is not recommended, although it's supported on the desktop. Convert the Onnx model to Ort format.
 
 Please refer to the [ORT model format](https://onnxruntime.ai/docs/performance/model-optimizations/ort-format-models.html) for more details.
 
