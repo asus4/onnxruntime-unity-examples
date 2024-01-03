@@ -2,9 +2,9 @@
 
 [![npm](https://img.shields.io/npm/v/com.github.asus4.onnxruntime?label=npm)](https://www.npmjs.com/package/com.github.asus4.onnxruntime)
 
-Examples and pre-built ONNX Runtime libraries for Unity.
+Examples of [ONNX Runtime Unity Plugin](https://github.com/asus4/onnxruntime-unity-examples).
 
-https://github.com/asus4/onnxruntime-unity-examples/assets/357497/96ed9913-41b7-401d-a634-f0e2de4fc3c7
+<https://github.com/asus4/onnxruntime-unity-examples/assets/357497/96ed9913-41b7-401d-a634-f0e2de4fc3c7>
 
 ## Tested environment
 
@@ -59,12 +59,6 @@ pip install onnxruntime
 # Use --optimization_style Fixed, when running on mobile CPU
 python -m onnxruntime.tools.convert_onnx_models_to_ort your_onnx_file.onnx --optimization_style Runtime
 ```
-
-## Links for libraries
-
-- [macOS](https://github.com/microsoft/onnxruntime/releases/)
-- [Android](https://central.sonatype.com/artifact/com.microsoft.onnxruntime/onnxruntime-android/versions)
-- [iOS](https://github.com/CocoaPods/Specs/tree/master/Specs/3/a/a/onnxruntime-c)
 
 ## Acknowledgements
 
