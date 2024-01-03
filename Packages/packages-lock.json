@@ -6,12 +6,28 @@
       "source": "local",
       "dependencies": {}
     },
+    "com.github.asus4.onnxruntime.linux-x64-gpu": {
+      "version": "file:../../onnxruntime-unity/com.github.asus4.onnxruntime.linux-x64-gpu",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {
+        "com.github.asus4.onnxruntime": "0.1.3"
+      }
+    },
     "com.github.asus4.onnxruntime.unity": {
       "version": "file:../../onnxruntime-unity/com.github.asus4.onnxruntime.unity",
       "depth": 0,
       "source": "local",
       "dependencies": {
-        "com.github.asus4.onnxruntime": "0.1.2"
+        "com.github.asus4.onnxruntime": "0.1.3"
+      }
+    },
+    "com.github.asus4.onnxruntime.win-x64-gpu": {
+      "version": "file:../../onnxruntime-unity/com.github.asus4.onnxruntime.win-x64-gpu",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {
+        "com.github.asus4.onnxruntime": "0.1.3"
       }
     },
     "com.github.asus4.texture-source": {
