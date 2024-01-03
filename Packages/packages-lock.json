@@ -1,15 +1,15 @@
 {
   "dependencies": {
     "com.github.asus4.onnxruntime": {
-      "version": "file:com.github.asus4.onnxruntime",
+      "version": "file:../../onnxruntime-unity/com.github.asus4.onnxruntime",
       "depth": 0,
-      "source": "embedded",
+      "source": "local",
       "dependencies": {}
     },
     "com.github.asus4.onnxruntime.unity": {
-      "version": "file:com.github.asus4.onnxruntime.unity",
+      "version": "file:../../onnxruntime-unity/com.github.asus4.onnxruntime.unity",
       "depth": 0,
-      "source": "embedded",
+      "source": "local",
       "dependencies": {
         "com.github.asus4.onnxruntime": "0.1.2"
       }
