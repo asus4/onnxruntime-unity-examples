@@ -8,7 +8,7 @@ https://github.com/asus4/onnxruntime-unity-examples/assets/357497/96ed9913-41b7-
 
 ## Tested environment
 
-- Unity: 2022.3.12f1 (LTS)
+- Unity: 2022.3.16f1 (LTS)
 - ONNX Runtime: 1.16.3
 - macOS, iOS, Android
 
