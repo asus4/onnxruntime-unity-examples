@@ -10,11 +10,12 @@ Examples of [ONNX Runtime Unity Plugin](https://github.com/asus4/onnxruntime-uni
 
 - Unity: 2022.3.16f1 (LTS)
 - ONNX Runtime: 1.16.3
-- macOS, iOS, Android
+- macOS, iOS, Android, Windows, Linux.
+  - Complete List for [:link: Supported Execution Providers](https://github.com/asus4/onnxruntime-unity?tab=readme-ov-file#execution-providers)
 
 ## How to Run
 
-### Test all examples
+### Try all examples
 
 Pull this repository with **[Git-LFS](https://git-lfs.com/)**
 
