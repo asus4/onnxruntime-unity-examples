@@ -20,6 +20,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         [System.Serializable]
         public class Options : ImageInferenceOptions
         {
+            [Header("MobileOne options")]
             public TextAsset labelFile;
             [Min(1)]
             public int topK = 10;
