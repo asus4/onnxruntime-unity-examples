@@ -7,7 +7,7 @@ using Microsoft.ML.OnnxRuntime.Unity;
 using Microsoft.ML.OnnxRuntime;
 
 /// <summary>
-/// Unit Test on the Device
+/// Unit test for each execution provider. run this on each device.
 /// </summary>
 public class UnitTestAddSample : MonoBehaviour
 {
@@ -21,10 +21,22 @@ public class UnitTestAddSample : MonoBehaviour
         // Test on all platforms
         TestDefaultCPU();
 
-        // XNNPACK is only available on Android and iOS
+        // XNNPACK: Android, iOS
         if (IsPlatform(RuntimePlatform.Android, RuntimePlatform.IPhonePlayer))
         {
             TestXNNPack();
+        }
+
+        // CoreML: iOS, macOS
+        if (IsPlatform(RuntimePlatform.IPhonePlayer, RuntimePlatform.OSXEditor, RuntimePlatform.OSXPlayer))
+        {
+            TestCoreML();
+        }
+
+        // NNAPI: Android
+        if (IsPlatform(RuntimePlatform.Android))
+        {
+            TestNNAPI();
         }
     }
 
@@ -35,13 +47,16 @@ public class UnitTestAddSample : MonoBehaviour
 
     private void TestDefaultCPU()
     {
+        Debug.Log("TestDefaultCPU");
         using SessionOptions options = new();
         RunSession(model.bytes, options);
     }
 
     private void TestXNNPack()
     {
-        // Create SessionOptions
+        Debug.Log("TestXNNPack");
+        // Recommended configuration for XNNPACK
+        // https://onnxruntime.ai/docs/execution-providers/Xnnpack-ExecutionProvider.html#recommended-configuration
         using SessionOptions options = new();
         options.AddSessionConfigEntry("session.intra_op.allow_spinning", "0");
         int threads = Math.Clamp(SystemInfo.processorCount, 1, 4);
@@ -53,11 +68,25 @@ public class UnitTestAddSample : MonoBehaviour
         RunSession(model.bytes, options);
     }
 
+    private void TestCoreML()
+    {
+        Debug.Log("TestCoreML");
+        using SessionOptions options = new();
+        options.AppendExecutionProvider_CoreML(CoreMLFlags.COREML_FLAG_ENABLE_ON_SUBGRAPH);
+        RunSession(model.bytes, options);
+    }
+
+    private void TestNNAPI()
+    {
+        Debug.Log("TestNNAPI");
+        using SessionOptions options = new();
+        options.AppendExecutionProvider_Nnapi();
+        RunSession(model.bytes, options);
+    }
+
     private static void RunSession(byte[] modelBytes, SessionOptions options)
     {
         using InferenceSession session = new(modelBytes, options);
-
-        session?.LogIOInfo();
 
         var inputNames = new List<string>() { "A", "B" };
         var inputTensors = new List<OrtValue>()
