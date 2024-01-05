@@ -27,6 +27,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         [Serializable]
         public class Options : ImageInferenceOptions
         {
+            [Header("Yolox options")]
             public TextAsset labelFile;
             [Range(1, 100)]
             public int maxDetections = 100;

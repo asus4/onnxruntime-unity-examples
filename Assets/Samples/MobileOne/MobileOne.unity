@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 705507994}
-  m_IndirectSpecularColor: {r: 0.44657844, g: 0.49641222, b: 0.57481676, a: 1}
+  m_IndirectSpecularColor: {r: 0.4439372, g: 0.49315345, b: 0.5721989, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -980,7 +980,7 @@ MonoBehaviour:
     aspectMode: 2
     mean: {x: 0.485, y: 0.456, z: 0.406}
     std: {x: 0.229, y: 0.224, z: 0.225}
-    useGPU: 1
+    executionProviderPriorities: 01000000
     labelFile: {fileID: 4900000, guid: ba31d3c702dc14c68b5724c21a017898, type: 3}
     topK: 5
   debugImage: {fileID: 429657177}
