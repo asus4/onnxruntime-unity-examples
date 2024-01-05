@@ -35,9 +35,9 @@ Add the following `scopedRegistries` and `dependencies` in `Packages/manifest.js
   ]
   "dependencies": {
     // Core library
-    "com.github.asus4.onnxruntime": "0.1.4",
+    "com.github.asus4.onnxruntime": "0.1.5",
     // (Optional) Utilities for Unity
-    "com.github.asus4.onnxruntime.unity": "0.1.4",
+    "com.github.asus4.onnxruntime.unity": "0.1.5",
     ... other dependencies
   }
 ```
