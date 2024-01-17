@@ -17,7 +17,10 @@ Examples of [ONNX Runtime Unity Plugin](https://github.com/asus4/onnxruntime-uni
 
 ### Try all examples
 
-Pull this repository with **[Git-LFS](https://git-lfs.com/)**
+Pull this repository.
+
+> [!IMPORTANT]  
+> You need to install [Git-LFS](https://git-lfs.github.com/) to test this repository.
 
 ### Install pre-built ONNX Runtime via Unity Package Manager (UPM)
 
