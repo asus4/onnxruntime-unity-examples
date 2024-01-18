@@ -1,6 +1,6 @@
 # ONNX Runtime examples for Unity
 
-[![npm](https://img.shields.io/npm/v/com.github.asus4.onnxruntime?label=npm)](https://www.npmjs.com/package/com.github.asus4.onnxruntime)
+[![upm](https://img.shields.io/npm/v/com.github.asus4.onnxruntime?label=upm)](https://www.npmjs.com/package/com.github.asus4.onnxruntime)
 
 Examples of [ONNX Runtime Unity Plugin](https://github.com/asus4/onnxruntime-unity).
 
@@ -17,14 +17,18 @@ Examples of [ONNX Runtime Unity Plugin](https://github.com/asus4/onnxruntime-uni
 
 ### Try all examples
 
-Pull this repository.
-
 > [!IMPORTANT]  
-> You need to install [Git-LFS](https://git-lfs.github.com/) to test this repository.
+> Install [Git-LFS](https://git-lfs.github.com/) to try this repository.
+
+ONNX examples are available in the `Assets/Examples` folder. Pull the repository and open the project in Unity.
+
+- [MobileOne](https://github.com/apple/ml-mobileone): Image classification
+- [Yolox](https://github.com/Megvii-BaseDetection/YOLOX): Object detection
 
 ### Install pre-built ONNX Runtime via Unity Package Manager (UPM)
 
-Add the following `scopedRegistries` and `dependencies` in `Packages/manifest.json`.
+Add the following `scopedRegistries` and `dependencies` in `Packages/manifest.json` to install the ONNX Runtime plugin into your project.  
+Check out the [asus4/onnxruntime-unity](https://github.com/asus4/onnxruntime-unity) repository for more details.
 
 ```json
   "scopedRegistries": [
@@ -38,9 +42,9 @@ Add the following `scopedRegistries` and `dependencies` in `Packages/manifest.js
   ]
   "dependencies": {
     // Core library
-    "com.github.asus4.onnxruntime": "0.1.8",
+    "com.github.asus4.onnxruntime": "0.1.10",
     // (Optional) Utilities for Unity
-    "com.github.asus4.onnxruntime.unity": "0.1.8",
+    "com.github.asus4.onnxruntime.unity": "0.1.10",
     ... other dependencies
   }
 ```
