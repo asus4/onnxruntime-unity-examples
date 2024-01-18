@@ -38,6 +38,9 @@ public class UnitTestAddSample : MonoBehaviour
         {
             TestNNAPI();
         }
+
+        // ONNX Runtime Extensions: macOS, Linux x64, Windows x64, iOS, Android
+        TestOrtExtensions();
     }
 
     private void OnDestroy()
@@ -82,6 +85,21 @@ public class UnitTestAddSample : MonoBehaviour
         using SessionOptions options = new();
         options.AppendExecutionProvider_Nnapi();
         RunSession(model.bytes, options);
+    }
+
+    private void TestOrtExtensions()
+    {
+        Debug.Log("TestOrtExtensions");
+        using SessionOptions options = new();
+        try
+        {
+            options.RegisterOrtExtensions();
+        }
+        catch (Exception e)
+        {
+            Debug.LogError(e.Message);
+        }
+        Debug.Log("Successfully registered ONNX Runtime Extensions");
     }
 
     private static void RunSession(byte[] modelBytes, SessionOptions options)
