@@ -1,42 +1,47 @@
 {
   "dependencies": {
     "com.github.asus4.onnxruntime": {
-      "version": "file:../../onnxruntime-unity/com.github.asus4.onnxruntime",
+      "version": "0.1.10",
       "depth": 0,
-      "source": "local",
-      "dependencies": {}
+      "source": "registry",
+      "dependencies": {},
+      "url": "https://registry.npmjs.com"
     },
     "com.github.asus4.onnxruntime-extensions": {
-      "version": "file:../../onnxruntime-unity/com.github.asus4.onnxruntime-extensions",
+      "version": "0.1.10",
       "depth": 0,
-      "source": "local",
+      "source": "registry",
       "dependencies": {
-        "com.github.asus4.onnxruntime": "0.1.5"
-      }
+        "com.github.asus4.onnxruntime": "0.1.10"
+      },
+      "url": "https://registry.npmjs.com"
     },
     "com.github.asus4.onnxruntime.linux-x64-gpu": {
-      "version": "file:../../onnxruntime-unity/com.github.asus4.onnxruntime.linux-x64-gpu",
+      "version": "0.1.10",
       "depth": 0,
-      "source": "local",
+      "source": "registry",
       "dependencies": {
-        "com.github.asus4.onnxruntime": "0.1.5"
-      }
+        "com.github.asus4.onnxruntime": "0.1.10"
+      },
+      "url": "https://registry.npmjs.com"
     },
     "com.github.asus4.onnxruntime.unity": {
-      "version": "file:../../onnxruntime-unity/com.github.asus4.onnxruntime.unity",
+      "version": "0.1.10",
       "depth": 0,
-      "source": "local",
+      "source": "registry",
       "dependencies": {
-        "com.github.asus4.onnxruntime": "0.1.5"
-      }
+        "com.github.asus4.onnxruntime": "0.1.10"
+      },
+      "url": "https://registry.npmjs.com"
     },
     "com.github.asus4.onnxruntime.win-x64-gpu": {
-      "version": "file:../../onnxruntime-unity/com.github.asus4.onnxruntime.win-x64-gpu",
+      "version": "0.1.10",
       "depth": 0,
-      "source": "local",
+      "source": "registry",
       "dependencies": {
-        "com.github.asus4.onnxruntime": "0.1.5"
-      }
+        "com.github.asus4.onnxruntime": "0.1.10"
+      },
+      "url": "https://registry.npmjs.com"
     },
     "com.github.asus4.texture-source": {
       "version": "0.1.3",

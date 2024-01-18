@@ -9,11 +9,11 @@
     }
   ],
   "dependencies": {
-    "com.github.asus4.onnxruntime": "file:../../onnxruntime-unity/com.github.asus4.onnxruntime",
-    "com.github.asus4.onnxruntime.unity": "file:../../onnxruntime-unity/com.github.asus4.onnxruntime.unity",
-    "com.github.asus4.onnxruntime-extensions": "file:../../onnxruntime-unity/com.github.asus4.onnxruntime-extensions",
-    "com.github.asus4.onnxruntime.win-x64-gpu": "file:../../onnxruntime-unity/com.github.asus4.onnxruntime.win-x64-gpu",
-    "com.github.asus4.onnxruntime.linux-x64-gpu": "file:../../onnxruntime-unity/com.github.asus4.onnxruntime.linux-x64-gpu",
+    "com.github.asus4.onnxruntime": "0.1.10",
+    "com.github.asus4.onnxruntime.unity": "0.1.10",
+    "com.github.asus4.onnxruntime-extensions": "0.1.10",
+    "com.github.asus4.onnxruntime.win-x64-gpu": "0.1.10",
+    "com.github.asus4.onnxruntime.linux-x64-gpu": "0.1.10",
     "com.github.asus4.texture-source": "0.1.3",
     "com.unity.2d.sprite": "1.0.0",
     "com.unity.collections": "2.1.4",
