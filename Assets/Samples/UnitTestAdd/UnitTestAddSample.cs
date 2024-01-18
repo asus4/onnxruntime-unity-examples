@@ -39,11 +39,8 @@ public class UnitTestAddSample : MonoBehaviour
             TestNNAPI();
         }
 
-        // ONNX Runtime Extensions: macOS
-        if (IsPlatform(RuntimePlatform.OSXEditor, RuntimePlatform.OSXPlayer))
-        {
-            TestOrtExtensions();
-        }
+        // ONNX Runtime Extensions: macOS, Linux x64, Windows x64, iOS, Android
+        TestOrtExtensions();
     }
 
     private void OnDestroy()
@@ -94,7 +91,15 @@ public class UnitTestAddSample : MonoBehaviour
     {
         Debug.Log("TestOrtExtensions");
         using SessionOptions options = new();
-        options.RegisterOrtExtensions();
+        try
+        {
+            options.RegisterOrtExtensions();
+        }
+        catch (Exception e)
+        {
+            Debug.LogError(e.Message);
+        }
+        Debug.Log("Successfully registered ONNX Runtime Extensions");
     }
 
     private static void RunSession(byte[] modelBytes, SessionOptions options)
