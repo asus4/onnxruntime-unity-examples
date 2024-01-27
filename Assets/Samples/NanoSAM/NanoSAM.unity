@@ -280,7 +280,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
-  m_RaycastTarget: 0
+  m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 0
   m_OnCullStateChanged:
@@ -807,7 +807,7 @@ GameObject:
   - component: {fileID: 1926674702}
   - component: {fileID: 1926674703}
   m_Layer: 0
-  m_Name: YoloxSample
+  m_Name: NanoSAMSample
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -882,23 +882,18 @@ MonoBehaviour:
   m_GameObject: {fileID: 1926674698}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d0f5b2b41d1124323983c587328d098b, type: 3}
+  m_Script: {fileID: 11500000, guid: 3c7d9cb43bd734f50a8b7ec4e89f1b3a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  model: {fileID: 1840921532545725537, guid: 10fc958f91d60496eb0802581a3e681e, type: 3}
+  encoderModel: {fileID: 1840921532545725537, guid: ba9a060e8eee843b195d0f79e2360114, type: 3}
+  decoderModel: {fileID: 1840921532545725537, guid: 64f1fc371a72e49049844e272e5d67d4, type: 3}
   options:
-    aspectMode: 1
-    mean: {x: 0.485, y: 0.456, z: 0.406}
-    std: {x: 0.229, y: 0.224, z: 0.225}
-    executionProvider:
-      executionProviderPriorities: 00000000
-    labelFile: {fileID: 4900000, guid: 4d3c55d55c69948b98a32b8d01d7f396, type: 3}
-    maxDetections: 100
-    probThreshold: 0.3
-    nmsThreshold: 0.45
-  detectionBoxPrefab: {fileID: 5453284232671403399, guid: 549855c05cfb843a1b851d9138f2997a, type: 3}
-  detectionContainer: {fileID: 429657176}
-  maxDetections: 20
+    encoderOptions:
+      aspectMode: 0
+      mean: {x: 0.485, y: 0.456, z: 0.406}
+      std: {x: 0.229, y: 0.224, z: 0.225}
+      executionProviderPriorities: 0100000002000000
+  preview: {fileID: 429657176}
 --- !u!1 &1965107666
 GameObject:
   m_ObjectHideFlags: 0
