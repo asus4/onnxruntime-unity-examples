@@ -22,6 +22,8 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         private readonly NanoSAMEncoder encoder;
         private readonly NanoSAMDecoder decoder;
 
+        public ReadOnlySpan<float> OutputMask => decoder.OutputMask;
+
         public NanoSAM(byte[] encoderModel, byte[] decoderModel, Options options)
         {
             encoder = new NanoSAMEncoder(encoderModel, options.encoderOptions);
@@ -56,6 +58,9 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         private readonly InferenceSession session;
 
         private readonly OrtValue[] inputs;
+        private readonly OrtValue[] outputs;
+
+        public ReadOnlySpan<float> OutputMask => outputs[1].GetTensorMutableDataAsSpan<float>();
 
         public NanoSAMDecoder(byte[] model, ExecutionProviderOptions options)
         {
@@ -105,6 +110,14 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                 // has_mask_input
                 OrtValue.CreateTensorValueFromMemory(new float[]{ 0 }, new long[] { 1 }),
             };
+
+            outputs = new OrtValue[]
+            {
+                // iou_predictions
+                OrtValue.CreateAllocatedTensorValue(allocator, TensorElementType.Float, new long[] { 1, 4 }),
+                // low_res_masks
+                OrtValue.CreateAllocatedTensorValue(allocator, TensorElementType.Float, new long[] { 1, 4, 256, 256 }),
+            };
         }
 
         public void Dispose()
@@ -127,20 +140,18 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             var pointCoords = inputs[1].GetTensorMutableDataAsSpan<float>();
             pointCoords[0] = point.x;
             pointCoords[1] = point.y;
+            // pointCoords[2] = point.x + 0.1f;
+            // pointCoords[3] = point.y + 0.1f;
 
             // point_labels
             var pointLabels = inputs[2].GetTensorMutableDataAsSpan<float>();
             pointLabels[0] = 0;
+            // pointLabels[1] = 1;
 
             // mask_input and has_mask_input not used
 
             // Run
-            using var outputs = session.Run(runOptions, session.InputNames, inputs, session.OutputNames);
-            foreach (var output in outputs)
-            {
-                var info = output.GetTensorTypeAndShape();
-                Debug.Log($"Output type:{info.ElementDataType}, shape:[{string.Join(",", info.Shape)}]");
-            }
+            session.Run(runOptions, session.InputNames, inputs, session.OutputNames, outputs);
         }
     }
 }

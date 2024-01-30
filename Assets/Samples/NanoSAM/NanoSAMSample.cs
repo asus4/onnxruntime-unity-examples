@@ -9,7 +9,7 @@ using UnityEngine.EventSystems;
 /// https://github.com/NVIDIA-AI-IOT/nanosam/
 /// 
 /// See LICENSE for full license information.
-[RequireComponent(typeof(VirtualTextureSource))]
+[RequireComponent(typeof(VirtualTextureSource), typeof(NanoSAMVisualizer))]
 public sealed class NanoSAMSample : MonoBehaviour
 {
     [Header("NanoSAM Options")]
@@ -28,9 +28,11 @@ public sealed class NanoSAMSample : MonoBehaviour
 
     private NanoSAM inference;
     private Texture inputTexture;
+    private NanoSAMVisualizer visualizer;
 
     private void Start()
     {
+        visualizer = GetComponent<NanoSAMVisualizer>();
         inference = new NanoSAM(encoderModel.bytes, decoderModel.bytes, options);
 
         if (TryGetComponent(out VirtualTextureSource source))
@@ -80,6 +82,7 @@ public sealed class NanoSAMSample : MonoBehaviour
         Debug.Log($"norm:{position}");
 
         Run(inputTexture, position);
+        visualizer.UpdateMask(inference.OutputMask);
     }
 
     private void Run(Texture texture, Vector2 point)

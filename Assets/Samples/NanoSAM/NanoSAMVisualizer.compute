@@ -1,0 +1,27 @@
+#pragma kernel VisualizeMask
+
+Buffer<float> _InputTensor;
+RWTexture2D<float4> _OutputTex;
+
+uint2 _OutputSize;
+
+// Get index of NCHW tensor
+uint4 IdxNCHW(uint4 c, uint y, uint x)
+{
+    return c * _OutputSize.x * _OutputSize.y + y * _OutputSize.x + x;
+}
+
+[numthreads(8,8,1)]
+void VisualizeMask (uint2 id : SV_DispatchThreadID)
+{
+    // Flip Y axis
+    uint4 tid = IdxNCHW(uint4(0, 1, 2, 3), _OutputSize.y - id.y - 1, id.x);
+
+    _OutputTex[id] = float4(
+        _InputTensor[tid.x],
+        _InputTensor[tid.y],
+        _InputTensor[tid.z],
+        1.0
+        //_InputTensor[tid.w]
+    );
+}
