@@ -71,22 +71,22 @@ public sealed class NanoSAMSample : MonoBehaviour
 
     private void OnPointerDown(PointerEventData data)
     {
-        if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(preview, data.position, data.pressEventCamera, out Vector2 position))
+        // Get click position in the rectTransform
+        if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(preview, data.position, data.pressEventCamera, out Vector2 rectPosition))
         {
             return;
         }
 
-        position = Rect.PointToNormalized(preview.rect, position);
-        // Flip Y axis to align with the model coordinate
-        position.y = 1.0f - position.y;
-        Debug.Log($"norm:{position}");
-
-        Run(inputTexture, position);
-        visualizer.UpdateMask(inference.OutputMask);
+        // Normalize range to 0.0 - 1.0
+        Vector2 point = Rect.PointToNormalized(preview.rect, rectPosition);
+        // Flip Y axis (top 0.0 to bottom 1.0)
+        point.y = 1.0f - point.y;
+        Run(point);
     }
 
-    private void Run(Texture texture, Vector2 point)
+    private void Run(Vector2 point)
     {
-        inference.Run(texture, point);
+        inference.Run(inputTexture, point);
+        visualizer.UpdateMask(inference.OutputMask);
     }
 }

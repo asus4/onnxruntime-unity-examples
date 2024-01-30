@@ -35,10 +35,10 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             encoder?.Dispose();
         }
 
-        public void Run(Texture texture, Vector2 point)
+        public void Run(Texture texture, Vector2 normalizedPoint)
         {
             encoder.Run(texture);
-            decoder.Run(encoder.ImageEmbeddings, point);
+            decoder.Run(encoder.ImageEmbeddings, normalizedPoint);
         }
     }
 
@@ -53,6 +53,8 @@ namespace Microsoft.ML.OnnxRuntime.Examples
 
     internal sealed class NanoSAMDecoder : IDisposable
     {
+        private static readonly Vector2Int ENCODER_SIZE = new(1024, 1024);
+        private static readonly Vector2Int MASK_SIZE = new(256, 256);
         private readonly SessionOptions sessionOptions;
         private readonly RunOptions runOptions;
         private readonly InferenceSession session;
@@ -110,13 +112,16 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                 // has_mask_input
                 OrtValue.CreateTensorValueFromMemory(new float[]{ 0 }, new long[] { 1 }),
             };
+            // Fill mask
+            var mask = inputs[3].GetTensorMutableDataAsSpan<float>();
+            mask.Fill(0);
 
             outputs = new OrtValue[]
             {
                 // iou_predictions
                 OrtValue.CreateAllocatedTensorValue(allocator, TensorElementType.Float, new long[] { 1, 4 }),
                 // low_res_masks
-                OrtValue.CreateAllocatedTensorValue(allocator, TensorElementType.Float, new long[] { 1, 4, 256, 256 }),
+                OrtValue.CreateAllocatedTensorValue(allocator, TensorElementType.Float, new long[] { 1, 4, MASK_SIZE.x, MASK_SIZE.y }),
             };
         }
 
@@ -131,21 +136,20 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             }
         }
 
-        public void Run(OrtValue imageEmbeddings, Vector2 point)
+        public void Run(OrtValue imageEmbeddings, Vector2 normalizedPoint)
         {
             // image_embeddings
             inputs[0] = imageEmbeddings;
 
             // point_coords
             var pointCoords = inputs[1].GetTensorMutableDataAsSpan<float>();
+            Vector2 point = Vector2.Scale(normalizedPoint, new Vector2(ENCODER_SIZE.x, ENCODER_SIZE.y));
             pointCoords[0] = point.x;
             pointCoords[1] = point.y;
-            // pointCoords[2] = point.x + 0.1f;
-            // pointCoords[3] = point.y + 0.1f;
 
             // point_labels
             var pointLabels = inputs[2].GetTensorMutableDataAsSpan<float>();
-            pointLabels[0] = 0;
+            pointLabels[0] = 1;
             // pointLabels[1] = 1;
 
             // mask_input and has_mask_input not used

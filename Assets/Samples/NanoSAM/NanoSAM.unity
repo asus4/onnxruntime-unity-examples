@@ -984,6 +984,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   shader: {fileID: 7200000, guid: dba6fd529e3c04def88e07adc84837ef, type: 3}
+  maskColor: {r: 0, g: 0.725, b: 0.46, a: 1}
+  threshold: 0.1
   onTexture:
     m_PersistentCalls:
       m_Calls:

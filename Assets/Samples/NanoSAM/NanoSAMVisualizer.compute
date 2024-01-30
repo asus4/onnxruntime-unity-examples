@@ -4,6 +4,8 @@ Buffer<float> _InputTensor;
 RWTexture2D<float4> _OutputTex;
 
 uint2 _OutputSize;
+float _Threshold;
+float4 _MaskColor;
 
 // Get index of NCHW tensor
 uint4 IdxNCHW(uint4 c, uint y, uint x)
@@ -17,11 +19,14 @@ void VisualizeMask (uint2 id : SV_DispatchThreadID)
     // Flip Y axis
     uint4 tid = IdxNCHW(uint4(0, 1, 2, 3), _OutputSize.y - id.y - 1, id.x);
 
-    _OutputTex[id] = float4(
+    float4 mask = float4(
         _InputTensor[tid.x],
         _InputTensor[tid.y],
         _InputTensor[tid.z],
-        1.0
-        //_InputTensor[tid.w]
+        _InputTensor[tid.w]
     );
+    
+    _OutputTex[id] = any(mask > _Threshold)
+        ? _MaskColor
+        : float4(0.0, 0.0, 0.0, 0.0);
 }
