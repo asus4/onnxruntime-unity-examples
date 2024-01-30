@@ -177,7 +177,7 @@ MonoBehaviour:
     m_Top: 0
     m_Bottom: 0
   m_ChildAlignment: 0
-  m_Spacing: 96
+  m_Spacing: 48
   m_ChildForceExpandWidth: 1
   m_ChildForceExpandHeight: 1
   m_ChildControlWidth: 1
@@ -399,6 +399,7 @@ MonoBehaviour:
   sceneNames:
   - MobileOne
   - Yolox
+  - NanoSAM
   - UnitTestAdd
 --- !u!4 &557997006
 Transform:

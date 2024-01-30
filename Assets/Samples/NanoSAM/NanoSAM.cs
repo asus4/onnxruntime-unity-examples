@@ -2,6 +2,7 @@ using System;
 using Microsoft.ML.OnnxRuntime.Unity;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using UnityEngine;
+using Unity.Profiling;
 
 namespace Microsoft.ML.OnnxRuntime.Examples
 {
@@ -22,6 +23,8 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         private readonly NanoSAMEncoder encoder;
         private readonly NanoSAMDecoder decoder;
 
+        static readonly ProfilerMarker runPerfMarker = new($"{typeof(NanoSAM).Name}.Run");
+
         public ReadOnlySpan<float> OutputMask => decoder.OutputMask;
 
         public NanoSAM(byte[] encoderModel, byte[] decoderModel, Options options)
@@ -37,8 +40,10 @@ namespace Microsoft.ML.OnnxRuntime.Examples
 
         public void Run(Texture texture, Vector2 normalizedPoint)
         {
+            runPerfMarker.Begin();
             encoder.Run(texture);
             decoder.Run(encoder.ImageEmbeddings, normalizedPoint);
+            runPerfMarker.End();
         }
     }
 
