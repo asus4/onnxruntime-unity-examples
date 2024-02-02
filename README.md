@@ -42,9 +42,9 @@ Check out the [asus4/onnxruntime-unity](https://github.com/asus4/onnxruntime-uni
   ]
   "dependencies": {
     // Core library
-    "com.github.asus4.onnxruntime": "0.1.10",
+    "com.github.asus4.onnxruntime": "0.1.11",
     // (Optional) Utilities for Unity
-    "com.github.asus4.onnxruntime.unity": "0.1.10",
+    "com.github.asus4.onnxruntime.unity": "0.1.11",
     ... other dependencies
   }
 ```
