@@ -14,10 +14,10 @@ public sealed class NanoSAMSample : MonoBehaviour
 {
     [Header("NanoSAM Options")]
     [SerializeField]
-    private OrtAsset encoderModel;
+    private RemoteFile encoderModelFile = new("https://huggingface.co/asus4/nanosam-ort/resolve/main/resnet18_image_encoder.with_runtime_opt.ort?download=true");
 
     [SerializeField]
-    private OrtAsset decoderModel;
+    private RemoteFile decoderModelFile = new("https://huggingface.co/asus4/nanosam-ort/resolve/main/mobile_sam_mask_decoder.with_runtime_opt.ort?download=true");
 
     [SerializeField]
     private NanoSAM.Options options;
@@ -30,10 +30,16 @@ public sealed class NanoSAMSample : MonoBehaviour
     private Texture inputTexture;
     private NanoSAMVisualizer visualizer;
 
-    private void Start()
+    private async void Start()
     {
+        Debug.Log("Downloading model files");
+        Handheld.StartActivityIndicator();
+        byte[] encoderModel = await encoderModelFile.Load();
+        byte[] decoderModel = await decoderModelFile.Load();
+        Handheld.StopActivityIndicator();
+
+        inference = new NanoSAM(encoderModel, decoderModel, options);
         visualizer = GetComponent<NanoSAMVisualizer>();
-        inference = new NanoSAM(encoderModel.bytes, decoderModel.bytes, options);
 
         if (TryGetComponent(out VirtualTextureSource source))
         {

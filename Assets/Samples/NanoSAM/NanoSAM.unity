@@ -961,6 +961,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   encoderModel: {fileID: 1840921532545725537, guid: ba9a060e8eee843b195d0f79e2360114, type: 3}
   decoderModel: {fileID: 1840921532545725537, guid: 64f1fc371a72e49049844e272e5d67d4, type: 3}
+  encoderModelPath: nanosam/resnet18_image_encoder.with_runtime_opt.ort
+  decoderModelPath: nanosam/mobile_sam_mask_decoder.with_runtime_opt.ort
+  encoderModelFile:
+    url: https://huggingface.co/asus4/nanosam-ort/resolve/main/resnet18_image_encoder.with_runtime_opt.ort?download=true
+    saveMode: 0
+  decoderModelFile:
+    url: https://huggingface.co/asus4/nanosam-ort/resolve/main/mobile_sam_mask_decoder.with_runtime_opt.ort?download=true
+    saveMode: 0
   options:
     encoderOptions:
       aspectMode: 0
