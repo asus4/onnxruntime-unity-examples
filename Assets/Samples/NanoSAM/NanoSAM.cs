@@ -22,6 +22,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
 
         private readonly NanoSAMEncoder encoder;
         private readonly NanoSAMDecoder decoder;
+        private bool disposed;
 
         static readonly ProfilerMarker runPerfMarker = new($"{typeof(NanoSAM).Name}.Run");
 
@@ -35,7 +36,19 @@ namespace Microsoft.ML.OnnxRuntime.Examples
 
         public void Dispose()
         {
-            encoder?.Dispose();
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        private void Dispose(bool disposing)
+        {
+            if (disposed) { return; }
+            if (disposing)
+            {
+                encoder?.Dispose();
+                decoder?.Dispose();
+                disposed = true;
+            }
         }
 
         public void Run(Texture texture, Vector2 normalizedPoint)
