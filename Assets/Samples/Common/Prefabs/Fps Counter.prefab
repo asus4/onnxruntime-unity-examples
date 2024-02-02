@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: 5295643345880781296}
   - component: {fileID: 748502639497514876}
   m_Layer: 5
-  m_Name: FpsCounter
+  m_Name: Fps Counter
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

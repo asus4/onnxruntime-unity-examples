@@ -15,6 +15,9 @@ EditorBuildSettings:
     path: Assets/Samples/Yolox/Yolox.unity
     guid: aa15b889fb4b3449b927fc9f3776baa7
   - enabled: 1
+    path: Assets/Samples/NanoSAM/NanoSAM.unity
+    guid: 612b16ace0d8f482b97be4061eb2da63
+  - enabled: 1
     path: Assets/Samples/UnitTestAdd/UnitTestAdd.unity
     guid: e02697251b4934c738c0bff99dbadb84
   m_configObjects: {}

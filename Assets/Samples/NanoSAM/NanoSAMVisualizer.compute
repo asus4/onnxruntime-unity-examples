@@ -1,0 +1,58 @@
+#pragma kernel VisualizeMask
+
+Buffer<float> _InputTensor;
+RWTexture2D<float4> _OutputTex;
+
+struct ARG
+{
+    int index;
+    float value;
+};
+
+uint2 _OutputSize;
+float _Threshold;
+float4 _MaskColors[4];
+
+// Get index of NCHW tensor
+uint4 IdxNCHW(uint4 c, uint y, uint x)
+{
+    return c * _OutputSize.x * _OutputSize.y + y * _OutputSize.x + x;
+}
+
+void ArgMax(float4 values, out int index, out float value)
+{
+    index = -1;
+    value = -1.0;
+
+    for (int i = 0; i < 4; i++)
+    {
+        float n = values[i];
+        if (n >= value)
+        {
+            index = i;
+            value = n;
+        }
+    }
+}
+
+[numthreads(8,8,1)]
+void VisualizeMask (uint2 id : SV_DispatchThreadID)
+{
+    // Flip Y axis
+    uint4 tid = IdxNCHW(uint4(0, 1, 2, 3), _OutputSize.y - id.y - 1, id.x);
+
+    float4 mask = float4(
+        _InputTensor[tid.x],
+        _InputTensor[tid.y],
+        _InputTensor[tid.z],
+        _InputTensor[tid.w]
+    );
+
+    int index = 0;
+    float value = -1.0;
+    ArgMax(mask, index, value);
+
+    _OutputTex[id] = (value > _Threshold)
+        ? _MaskColors[index]
+        : float4(0.0, 0.0, 0.0, 0.0);
+}
