@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.Events;
 using Microsoft.ML.OnnxRuntime.Unity;
@@ -17,7 +18,10 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         private ComputeShader shader;
 
         [SerializeField]
-        private Color maskColor = new Color(0f, 0.725f, 0.46f, 1f);
+        private Color[] maskColors = new Color[]
+        {
+            new Color(0f, 0.725f, 0.46f, 1f),
+        };
 
         [SerializeField]
         [Min(0)]
@@ -28,19 +32,20 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         private static readonly int _InputTensor = Shader.PropertyToID("_InputTensor");
         private static readonly int _OutputTex = Shader.PropertyToID("_OutputTex");
         private static readonly int _Threshold = Shader.PropertyToID("_Threshold");
-        private static readonly int _MaskColor = Shader.PropertyToID("_MaskColor");
+        private static readonly int _MaskColors = Shader.PropertyToID("_MaskColors");
 
         private RenderTexture renderTexture;
         private ComputeBuffer maskBuffer;
         private int kernel;
 
-        public Color MaskColor
+        public Color[] MaskColors
         {
-            get => maskColor;
+            get => maskColors;
             set
             {
-                maskColor = value;
-                shader.SetVector(_MaskColor, value);
+                maskColors = value;
+                var vectors = value.Select(c => (Vector4)c).ToArray();
+                shader.SetVectorArray(_MaskColors, vectors);
             }
         }
 
@@ -65,7 +70,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             kernel = shader.FindKernel("VisualizeMask");
             shader.SetInts("_OutputSize", renderTexture.width, renderTexture.height);
             Threshold = threshold;
-            MaskColor = maskColor;
+            MaskColors = maskColors;
         }
 
         private void OnDestroy()
@@ -82,7 +87,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         private void OnValidate()
         {
             Threshold = threshold;
-            MaskColor = maskColor;
+            MaskColors = maskColors;
         }
 #endif // UNITY_EDITOR
 

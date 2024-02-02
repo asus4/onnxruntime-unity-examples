@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Microsoft.ML.OnnxRuntime.Examples;
 using TextureSource;
 using UnityEngine;
@@ -35,6 +36,11 @@ public sealed class NanoSAMSample : MonoBehaviour
     [SerializeField]
     private TMPro.TMP_Dropdown maskDropdown;
 
+    [SerializeField]
+    private Image pointPrefab;
+
+    private readonly List<NanoSAM.Point> points = new();
+    private readonly List<Image> pointImages = new();
     private NanoSAM inference;
     private Texture inputTexture;
     private NanoSAMVisualizer visualizer;
@@ -67,6 +73,11 @@ public sealed class NanoSAMSample : MonoBehaviour
             source.OnTexture.AddListener(OnTexture);
         }
 
+        // Create mask dropdown options
+        maskDropdown.ClearOptions();
+        maskDropdown.AddOptions(new List<string> {
+            "Mask 0", "Mask 1", "Mask 2", "Mask 3",
+        });
         resetButton.onClick.AddListener(ResetMask);
 
         // Hide loading indicator
@@ -107,22 +118,52 @@ public sealed class NanoSAMSample : MonoBehaviour
         Vector2 point = Rect.PointToNormalized(preview.rect, rectPosition);
         // Flip Y axis (top 0.0 to bottom 1.0)
         point.y = 1.0f - point.y;
-        Run(point);
+
+
+        int label = maskDropdown.value + 1;
+
+        if (points.Count == 0)
+        {
+            // Create point object
+            points.Add(new NanoSAM.Point(point, label));
+            // Add image
+            var image = Instantiate(pointPrefab, preview);
+            image.rectTransform.anchoredPosition = rectPosition;
+            pointImages.Add(image);
+        }
+        else
+        {
+            // TODO: support multiple point segmentation
+            // Replace existing points for now.
+            points[0] = new NanoSAM.Point(point, label);
+            pointImages[0].rectTransform.anchoredPosition = rectPosition;
+        }
+
+        Debug.Log($"Add new point: {point}, label:{label}");
+        Run(points);
     }
 
     private void ResetMask()
     {
-        Debug.Log("TODO: ResetMask");
+        points.Clear();
+        foreach (var image in pointImages)
+        {
+            Destroy(image.gameObject);
+        }
+        pointImages.Clear();
+
+        inference.ResetOutput();
+        visualizer.UpdateMask(inference.OutputMask);
     }
 
-    private void Run(Vector2 point)
+    private void Run(List<NanoSAM.Point> points)
     {
         if (inputTexture == null)
         {
             return;
         }
 
-        inference.Run(inputTexture, point);
+        inference.Run(inputTexture, points.AsReadOnly());
         visualizer.UpdateMask(inference.OutputMask);
     }
 }

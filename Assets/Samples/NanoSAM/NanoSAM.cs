@@ -3,6 +3,7 @@ using Microsoft.ML.OnnxRuntime.Unity;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using UnityEngine;
 using Unity.Profiling;
+using System.Collections.ObjectModel;
 
 namespace Microsoft.ML.OnnxRuntime.Examples
 {
@@ -66,15 +67,20 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         public void Run(Texture texture, Vector2 normalizedPoint)
         {
             var point = new Point(normalizedPoint, 1);
-            Run(texture, new Point[] { point });
+            Run(texture, Array.AsReadOnly(new Point[] { point }));
         }
 
-        public void Run(Texture texture, ReadOnlySpan<Point> normalizedPoints)
+        public void Run(Texture texture, ReadOnlyCollection<Point> normalizedPoints)
         {
             runPerfMarker.Begin();
             encoder.Run(texture);
             decoder.Run(encoder.ImageEmbeddings, normalizedPoints);
             runPerfMarker.End();
+        }
+
+        public void ResetOutput()
+        {
+            decoder.ResetOutput();
         }
     }
 
@@ -101,7 +107,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         private readonly OrtValue[] inputs;
         private readonly OrtValue[] outputs;
 
-        public ReadOnlySpan<float> OutputMask => outputs[1].GetTensorMutableDataAsSpan<float>();
+        public ReadOnlySpan<float> OutputMask => outputs[1].GetTensorDataAsSpan<float>();
 
         public NanoSAMDecoder(byte[] model, ExecutionProviderOptions options)
         {
@@ -121,7 +127,6 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             session.LogIOInfo();
 
             /*
-            Version: 1.16.3
             Input:
             [image_embeddings] shape: 1,256,64,64, type: System.Single
             [point_coords] shape: 1,-1,2, type: System.Single
@@ -179,15 +184,16 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             }
         }
 
-        public void Run(OrtValue imageEmbeddings, ReadOnlySpan<NanoSAM.Point> points)
+        public void Run(OrtValue imageEmbeddings, ReadOnlyCollection<NanoSAM.Point> points)
         {
             // image_embeddings
             inputs[0] = imageEmbeddings;
 
             // point_coords and point_labels
-            var coords = new float[points.Length * 2];
-            var labels = new float[points.Length];
-            for (int i = 0; i < points.Length; i++)
+            int length = points.Count;
+            var coords = new float[length * 2];
+            var labels = new float[length];
+            for (int i = 0; i < length; i++)
             {
                 var p = points[i];
                 coords[i * 2] = p.point.x * POINT_SCALE.x;
@@ -196,14 +202,20 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             }
             inputs[1].Dispose();
             inputs[2].Dispose();
-            inputs[1] = OrtValue.CreateTensorValueFromMemory(coords, new long[] { 1, points.Length, 2 });
-            inputs[2] = OrtValue.CreateTensorValueFromMemory(labels, new long[] { 1, points.Length });
+            inputs[1] = OrtValue.CreateTensorValueFromMemory(coords, new long[] { 1, length, 2 });
+            inputs[2] = OrtValue.CreateTensorValueFromMemory(labels, new long[] { 1, length });
 
             // TODO: mask_input and has_mask_input not used
             // Make example of mask_input
 
             // Run
             session.Run(runOptions, session.InputNames, inputs, session.OutputNames, outputs);
+        }
+
+        public void ResetOutput()
+        {
+            var output = outputs[1].GetTensorMutableDataAsSpan<float>();
+            output.Fill(0);
         }
     }
 }
