@@ -2,6 +2,7 @@ using Microsoft.ML.OnnxRuntime.Examples;
 using TextureSource;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 /// <summary>
 /// Nvidia's NanoSAM Sample
@@ -28,12 +29,19 @@ public sealed class NanoSAMSample : MonoBehaviour
     [SerializeField]
     private GameObject loadingIndicator;
 
+    [SerializeField]
+    private Button resetButton;
+
+    [SerializeField]
+    private TMPro.TMP_Dropdown maskDropdown;
+
     private NanoSAM inference;
     private Texture inputTexture;
     private NanoSAMVisualizer visualizer;
 
     private async void Start()
     {
+        // Show loading indicator
         loadingIndicator.SetActive(true);
 
         // Load model files, this will take some time at first run
@@ -43,13 +51,8 @@ public sealed class NanoSAMSample : MonoBehaviour
         inference = new NanoSAM(encoderModel, decoderModel, options);
         visualizer = GetComponent<NanoSAMVisualizer>();
 
-        if (TryGetComponent(out VirtualTextureSource source))
-        {
-            source.OnTexture.AddListener(OnTexture);
-        }
-
-        // Register pointer down event
-        EventTrigger.TriggerEvent callback = new();
+        // Register pointer down event to preview rect
+        var callback = new EventTrigger.TriggerEvent();
         callback.AddListener((data) => OnPointerDown((PointerEventData)data));
         var trigger = preview.gameObject.AddComponent<EventTrigger>();
         trigger.triggers.Add(new()
@@ -58,11 +61,24 @@ public sealed class NanoSAMSample : MonoBehaviour
             callback = callback,
         });
 
+        // Listen to texture update event
+        if (TryGetComponent(out VirtualTextureSource source))
+        {
+            source.OnTexture.AddListener(OnTexture);
+        }
+
+        resetButton.onClick.AddListener(ResetMask);
+
+        // Hide loading indicator
         loadingIndicator.SetActive(false);
     }
 
     private void OnDestroy()
     {
+        if (resetButton != null)
+        {
+            resetButton.onClick.RemoveListener(ResetMask);
+        }
         if (preview != null && preview.TryGetComponent(out EventTrigger trigger))
         {
             Destroy(trigger);
@@ -74,14 +90,9 @@ public sealed class NanoSAMSample : MonoBehaviour
         inference?.Dispose();
     }
 
-    public void OnTexture(Texture texture)
+    private void OnTexture(Texture texture)
     {
         inputTexture = texture;
-    }
-
-    public void ResetMask()
-    {
-        Debug.Log("ResetMask");
     }
 
     private void OnPointerDown(PointerEventData data)
@@ -97,6 +108,11 @@ public sealed class NanoSAMSample : MonoBehaviour
         // Flip Y axis (top 0.0 to bottom 1.0)
         point.y = 1.0f - point.y;
         Run(point);
+    }
+
+    private void ResetMask()
+    {
+        Debug.Log("TODO: ResetMask");
     }
 
     private void Run(Vector2 point)
