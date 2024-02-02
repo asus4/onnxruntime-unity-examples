@@ -13,6 +13,18 @@ namespace Microsoft.ML.OnnxRuntime.Examples
     /// See LICENSE for full license information.
     public sealed class NanoSAM : IDisposable
     {
+        public readonly struct Point
+        {
+            public readonly Vector2 point;
+            public readonly float label;
+
+            public Point(Vector2 point, float label)
+            {
+                this.point = point;
+                this.label = label;
+            }
+        }
+
         [Serializable]
         public class Options
         {
@@ -53,9 +65,15 @@ namespace Microsoft.ML.OnnxRuntime.Examples
 
         public void Run(Texture texture, Vector2 normalizedPoint)
         {
+            var point = new Point(normalizedPoint, 1);
+            Run(texture, new Point[] { point });
+        }
+
+        public void Run(Texture texture, ReadOnlySpan<Point> normalizedPoints)
+        {
             runPerfMarker.Begin();
             encoder.Run(texture);
-            decoder.Run(encoder.ImageEmbeddings, normalizedPoint);
+            decoder.Run(encoder.ImageEmbeddings, normalizedPoints);
             runPerfMarker.End();
         }
     }
@@ -73,9 +91,12 @@ namespace Microsoft.ML.OnnxRuntime.Examples
     {
         private static readonly Vector2Int ENCODER_SIZE = new(1024, 1024);
         private static readonly Vector2Int MASK_SIZE = new(256, 256);
+        private static readonly Vector2 POINT_SCALE = new(ENCODER_SIZE.x, ENCODER_SIZE.y);
+
         private readonly SessionOptions sessionOptions;
         private readonly RunOptions runOptions;
         private readonly InferenceSession session;
+
 
         private readonly OrtValue[] inputs;
         private readonly OrtValue[] outputs;
@@ -158,23 +179,28 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             }
         }
 
-        public void Run(OrtValue imageEmbeddings, Vector2 normalizedPoint)
+        public void Run(OrtValue imageEmbeddings, ReadOnlySpan<NanoSAM.Point> points)
         {
             // image_embeddings
             inputs[0] = imageEmbeddings;
 
-            // point_coords
-            var pointCoords = inputs[1].GetTensorMutableDataAsSpan<float>();
-            Vector2 point = Vector2.Scale(normalizedPoint, new Vector2(ENCODER_SIZE.x, ENCODER_SIZE.y));
-            pointCoords[0] = point.x;
-            pointCoords[1] = point.y;
+            // point_coords and point_labels
+            var coords = new float[points.Length * 2];
+            var labels = new float[points.Length];
+            for (int i = 0; i < points.Length; i++)
+            {
+                var p = points[i];
+                coords[i * 2] = p.point.x * POINT_SCALE.x;
+                coords[i * 2 + 1] = p.point.y * POINT_SCALE.y;
+                labels[i] = p.label;
+            }
+            inputs[1].Dispose();
+            inputs[2].Dispose();
+            inputs[1] = OrtValue.CreateTensorValueFromMemory(coords, new long[] { 1, points.Length, 2 });
+            inputs[2] = OrtValue.CreateTensorValueFromMemory(labels, new long[] { 1, points.Length });
 
-            // point_labels
-            var pointLabels = inputs[2].GetTensorMutableDataAsSpan<float>();
-            pointLabels[0] = 1;
-            // pointLabels[1] = 1;
-
-            // mask_input and has_mask_input not used
+            // TODO: mask_input and has_mask_input not used
+            // Make example of mask_input
 
             // Run
             session.Run(runOptions, session.InputNames, inputs, session.OutputNames, outputs);
