@@ -150,7 +150,11 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             sessionOptions?.Dispose();
             foreach (var input in inputs)
             {
-                input.Dispose();
+                input?.Dispose();
+            }
+            foreach (var output in outputs)
+            {
+                output?.Dispose();
             }
         }
 

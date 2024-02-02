@@ -1,5 +1,4 @@
 using Microsoft.ML.OnnxRuntime.Examples;
-using Microsoft.ML.OnnxRuntime.Unity;
 using TextureSource;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -26,17 +25,20 @@ public sealed class NanoSAMSample : MonoBehaviour
     [SerializeField]
     private RectTransform preview;
 
+    [SerializeField]
+    private GameObject loadingIndicator;
+
     private NanoSAM inference;
     private Texture inputTexture;
     private NanoSAMVisualizer visualizer;
 
     private async void Start()
     {
-        Debug.Log("Downloading model files");
-        Handheld.StartActivityIndicator();
+        loadingIndicator.SetActive(true);
+
+        // Load model files, this will take some time at first run
         byte[] encoderModel = await encoderModelFile.Load();
         byte[] decoderModel = await decoderModelFile.Load();
-        Handheld.StopActivityIndicator();
 
         inference = new NanoSAM(encoderModel, decoderModel, options);
         visualizer = GetComponent<NanoSAMVisualizer>();
@@ -55,6 +57,8 @@ public sealed class NanoSAMSample : MonoBehaviour
             eventID = EventTriggerType.PointerDown,
             callback = callback,
         });
+
+        loadingIndicator.SetActive(false);
     }
 
     private void OnDestroy()

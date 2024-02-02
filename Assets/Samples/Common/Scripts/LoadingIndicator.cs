@@ -2,6 +2,9 @@ using UnityEngine;
 
 namespace Microsoft.ML.OnnxRuntime.Examples
 {
+    /// <summary>
+    /// Simple rotating loading icon
+    /// </summary>
     public sealed class LoadingIndicator : MonoBehaviour
     {
         [SerializeField]
