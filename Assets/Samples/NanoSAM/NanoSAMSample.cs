@@ -79,6 +79,11 @@ public sealed class NanoSAMSample : MonoBehaviour
         inputTexture = texture;
     }
 
+    public void ResetMask()
+    {
+        Debug.Log("ResetMask");
+    }
+
     private void OnPointerDown(PointerEventData data)
     {
         // Get click position in the rectTransform
@@ -96,6 +101,11 @@ public sealed class NanoSAMSample : MonoBehaviour
 
     private void Run(Vector2 point)
     {
+        if (inputTexture == null)
+        {
+            return;
+        }
+
         inference.Run(inputTexture, point);
         visualizer.UpdateMask(inference.OutputMask);
     }
