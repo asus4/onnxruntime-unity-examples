@@ -37,7 +37,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         private readonly NanoSAMDecoder decoder;
         private bool disposed;
 
-        static readonly ProfilerMarker runPerfMarker = new($"{typeof(NanoSAM).Name}.Run");
+        static readonly ProfilerMarker runProfMarker = new($"{typeof(NanoSAM).Name}.Run");
 
         public ReadOnlySpan<float> OutputMask => decoder.OutputMask;
 
@@ -72,10 +72,10 @@ namespace Microsoft.ML.OnnxRuntime.Examples
 
         public void Run(Texture texture, ReadOnlyCollection<Point> normalizedPoints)
         {
-            runPerfMarker.Begin();
+            runProfMarker.Begin();
             encoder.Run(texture);
             decoder.Run(encoder.ImageEmbeddings, normalizedPoints);
-            runPerfMarker.End();
+            runProfMarker.End();
         }
 
         public void ResetOutput()

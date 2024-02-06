@@ -5,7 +5,6 @@ RWTexture2D<float4> _OutputTex;
 
 uint2 _OutputSize;
 float _Threshold;
-float4 _MaskColor;
 
 // Get index of NCHW tensor
 uint4 IdxNCHW(uint4 c, uint y, uint x)
@@ -13,7 +12,6 @@ uint4 IdxNCHW(uint4 c, uint y, uint x)
     return c * _OutputSize.x * _OutputSize.y + y * _OutputSize.x + x;
 }
 
-// TODO: Implement mask anti-aliasing using joint-bilateral filter
 [numthreads(8,8,1)]
 void VisualizeMask (uint2 id : SV_DispatchThreadID)
 {
@@ -28,6 +26,6 @@ void VisualizeMask (uint2 id : SV_DispatchThreadID)
     );
 
     _OutputTex[id] = any(mask >= _Threshold)
-        ? _MaskColor
+        ? float4(1.0, 1.0, 1.0, 1.0)
         : float4(0.0, 0.0, 0.0, 0.0);
 }

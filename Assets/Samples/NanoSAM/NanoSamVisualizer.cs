@@ -1,7 +1,8 @@
 using System;
+using Microsoft.ML.OnnxRuntime.Unity;
 using UnityEngine;
 using UnityEngine.Events;
-using Microsoft.ML.OnnxRuntime.Unity;
+using Unity.Profiling;
 
 namespace Microsoft.ML.OnnxRuntime.Examples
 {
@@ -11,35 +12,34 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         public class TextureEvent : UnityEvent<Texture> { }
 
         [SerializeField]
-        private ComputeShader shader;
+        private ComputeShader tensorToTexShader;
 
         [SerializeField]
-        private Color maskColor = new(0f, 0.725f, 0.46f, 1f);
+        private ComputeShader filterShader;
+
+
 
         [SerializeField]
         [Min(0)]
         private float threshold = 0.1f;
+
+        [SerializeField]
+        private bool useFilter = true;
 
         public TextureEvent onTexture = new();
 
         private static readonly int _InputTensor = Shader.PropertyToID("_InputTensor");
         private static readonly int _OutputTex = Shader.PropertyToID("_OutputTex");
         private static readonly int _Threshold = Shader.PropertyToID("_Threshold");
-        private static readonly int _MaskColor = Shader.PropertyToID("_MaskColor");
 
         private RenderTexture renderTexture;
         private ComputeBuffer maskBuffer;
         private int kernel;
 
-        public Color MaskColor
-        {
-            get => maskColor;
-            set
-            {
-                maskColor = value;
-                shader.SetVector(_MaskColor, maskColor);
-            }
-        }
+        private JointBilateralFilter filter;
+
+        static readonly ProfilerMarker tensorToTexProfMarker = new($"{typeof(NanoSAMVisualizer).Name}.Run");
+        static readonly ProfilerMarker filterProfMarker = new($"{typeof(JointBilateralFilter).Name}.Run");
 
         public float Threshold
         {
@@ -47,7 +47,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             set
             {
                 threshold = Math.Max(value, 0);
-                shader.SetFloat(_Threshold, value);
+                tensorToTexShader.SetFloat(_Threshold, value);
             }
         }
 
@@ -61,10 +61,11 @@ namespace Microsoft.ML.OnnxRuntime.Examples
 
             maskBuffer = new ComputeBuffer(4 * 256 * 256, sizeof(float));
 
-            kernel = shader.FindKernel("VisualizeMask");
-            shader.SetInts("_OutputSize", renderTexture.width, renderTexture.height);
-            MaskColor = maskColor;
+            kernel = tensorToTexShader.FindKernel("VisualizeMask");
+            tensorToTexShader.SetInts("_OutputSize", renderTexture.width, renderTexture.height);
             Threshold = threshold;
+
+            filter = new JointBilateralFilter(filterShader);
         }
 
         private void OnDestroy()
@@ -75,6 +76,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                 Destroy(renderTexture);
             }
             maskBuffer?.Release();
+            filter?.Dispose();
         }
 
 #if UNITY_EDITOR
@@ -84,23 +86,29 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             {
                 return;
             }
-            MaskColor = maskColor;
             Threshold = threshold;
-            UpdateMask(null);
         }
 #endif // UNITY_EDITOR
 
-        public void UpdateMask(ReadOnlySpan<float> outputMask)
+        public void UpdateMask(ReadOnlySpan<float> outputMask, Texture guide)
         {
+            tensorToTexProfMarker.Begin();
             if (outputMask != null)
             {
                 maskBuffer.SetData(outputMask);
             }
-            shader.SetBuffer(kernel, _InputTensor, maskBuffer);
-            shader.SetTexture(kernel, _OutputTex, renderTexture);
-            shader.Dispatch(kernel, renderTexture.width / 8, renderTexture.height / 8, 1);
+            tensorToTexShader.SetBuffer(kernel, _InputTensor, maskBuffer);
+            tensorToTexShader.SetTexture(kernel, _OutputTex, renderTexture);
+            tensorToTexShader.Dispatch(kernel, renderTexture.width / 8, renderTexture.height / 8, 1);
+            tensorToTexProfMarker.End();
 
-            onTexture.Invoke(renderTexture);
+            filterProfMarker.Begin();
+            var tex = useFilter
+                ? filter.Run(renderTexture, guide)
+                : renderTexture;
+            filterProfMarker.End();
+
+            onTexture.Invoke(tex);
         }
     }
 }

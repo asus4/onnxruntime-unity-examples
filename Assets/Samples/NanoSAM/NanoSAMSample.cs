@@ -133,7 +133,7 @@ public sealed class NanoSAMSample : MonoBehaviour
         image.rectTransform.anchoredPosition = rectPosition;
         pointImages.Add(image);
 
-        Debug.Log($"Add new point: {point}, label:{label}");
+        Debug.Log($"Add {(label == 0 ? "Negative" : "Positive")} point: {point}");
         Run(points);
     }
 
@@ -147,7 +147,7 @@ public sealed class NanoSAMSample : MonoBehaviour
         pointImages.Clear();
 
         inference.ResetOutput();
-        visualizer.UpdateMask(inference.OutputMask);
+        visualizer.UpdateMask(inference.OutputMask, inputTexture);
     }
 
     private void Run(List<NanoSAM.Point> points)
@@ -158,6 +158,6 @@ public sealed class NanoSAMSample : MonoBehaviour
         }
 
         inference.Run(inputTexture, points.AsReadOnly());
-        visualizer.UpdateMask(inference.OutputMask);
+        visualizer.UpdateMask(inference.OutputMask, inputTexture);
     }
 }

@@ -878,7 +878,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 1, b: 1, a: 0.39607844}
+  m_Color: {r: 0, g: 0.7254902, b: 0.45882353, a: 0.29803923}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -1276,9 +1276,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2a864d9dd84fd426ba82d675d07cb9e3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  shader: {fileID: 7200000, guid: dba6fd529e3c04def88e07adc84837ef, type: 3}
-  maskColor: {r: 0, g: 0.725, b: 0.46, a: 1}
+  tensorToTexShader: {fileID: 7200000, guid: dba6fd529e3c04def88e07adc84837ef, type: 3}
+  filterShader: {fileID: 7200000, guid: 39cc61383b0b44bd59701a345417e114, type: 3}
   threshold: 0.1
+  useFilter: 1
   onTexture:
     m_PersistentCalls:
       m_Calls:
