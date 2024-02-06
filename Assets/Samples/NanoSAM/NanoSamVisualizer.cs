@@ -15,16 +15,23 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         private ComputeShader tensorToTexShader;
 
         [SerializeField]
-        private ComputeShader filterShader;
-
-
-
-        [SerializeField]
         [Min(0)]
         private float threshold = 0.1f;
 
+        [Header("Bilateral Filter")]
         [SerializeField]
         private bool useFilter = true;
+
+        [SerializeField]
+        private ComputeShader filterShader;
+
+        [SerializeField]
+        [Min(0)]
+        private float sigmaSpace;
+
+        [SerializeField]
+        [Range(0, 1)]
+        private float sigmaColor;
 
         public TextureEvent onTexture = new();
 
@@ -87,6 +94,8 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                 return;
             }
             Threshold = threshold;
+            filter.SigmaSpace = sigmaSpace;
+            filter.SigmaColor = sigmaColor;
         }
 #endif // UNITY_EDITOR
 

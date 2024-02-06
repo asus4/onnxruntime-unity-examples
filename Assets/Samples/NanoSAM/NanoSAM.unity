@@ -1277,9 +1277,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   tensorToTexShader: {fileID: 7200000, guid: dba6fd529e3c04def88e07adc84837ef, type: 3}
-  filterShader: {fileID: 7200000, guid: 39cc61383b0b44bd59701a345417e114, type: 3}
-  threshold: 0.1
+  threshold: 0.01
   useFilter: 1
+  filterShader: {fileID: 7200000, guid: 39cc61383b0b44bd59701a345417e114, type: 3}
+  sigmaSpace: 2
+  sigmaColor: 1
   onTexture:
     m_PersistentCalls:
       m_Calls:
