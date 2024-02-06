@@ -1,0 +1,74 @@
+#pragma kernel JointBilateralFilter
+
+// Ported from MediaPipe
+
+// Copyright 2019 The MediaPipe Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+
+Texture2D<float4> _InputMaskTex;
+Texture2D<float4> _InputGuideTex;
+RWTexture2D<float4> _OutputTex;
+float4 _InputGuideTex_TexelSize;
+uint2 _OutputSize;
+
+float _SigmaSpace;
+float _SigmaColor;
+float _Step;
+float _Radius;
+float _Offset;
+
+SamplerState linearClampSampler;
+
+float gaussian(float x, float sigma) {
+    float coeff = -0.5 / (sigma * sigma * 4.0 + 1.0e-6);
+    return exp((x * x) * coeff);
+}
+
+// joint-bilateral filter
+[numthreads(8,8,1)]
+void JointBilateralFilter (uint2 id : SV_DispatchThreadID)
+{
+    float2 center_uv = (float2)id / float2(_OutputSize - 1.0);
+    float3 center_val = _InputGuideTex.SampleLevel(linearClampSampler, center_uv, 0).rgb;
+    float3 new_val = float3(0.0, 0.0, 0.0);
+
+    float space_weight = 0.0;
+    float color_weight = 0.0;
+    float total_weight = 0.0;
+
+    float sigma_texel = max(_InputGuideTex_TexelSize.x, _InputGuideTex_TexelSize.y) * _SigmaSpace;
+
+    // Subsample kernel space.
+    for (float i = -_Radius + _Offset; i <= _Radius; i += _Step)
+    {
+        for (float j = -_Radius + _Offset; j <= _Radius; j += _Step)
+        {
+            float2 shift = float2(j, i) * _InputGuideTex_TexelSize.xy;
+            float2 uv = float2(center_uv + shift);
+            float3 guide_val = _InputGuideTex.SampleLevel(linearClampSampler, uv, 0).rgb;
+            float3 out_val = _InputMaskTex.SampleLevel(linearClampSampler, uv, 0).rgb;
+
+            space_weight = gaussian(distance(center_uv, uv), sigma_texel);
+            color_weight = gaussian(distance(center_val, guide_val), _SigmaColor);
+            total_weight += space_weight * color_weight;
+
+            new_val += out_val * (space_weight * color_weight);
+        }
+    }
+
+    new_val /= total_weight;
+
+    _OutputTex[id] = float4(new_val, 1.0);
+}

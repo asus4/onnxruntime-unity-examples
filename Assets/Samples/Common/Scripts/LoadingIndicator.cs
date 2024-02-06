@@ -20,7 +20,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
 
         private void Update()
         {
-            target.Rotate(0, 0, 180 * Time.deltaTime);
+            target.Rotate(0, 0, -180 * Time.deltaTime);
         }
     }
 }

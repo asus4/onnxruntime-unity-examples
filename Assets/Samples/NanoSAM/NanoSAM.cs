@@ -37,12 +37,20 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         private readonly NanoSAMDecoder decoder;
         private bool disposed;
 
-        static readonly ProfilerMarker runPerfMarker = new($"{typeof(NanoSAM).Name}.Run");
+        static readonly ProfilerMarker runProfMarker = new($"{typeof(NanoSAM).Name}.Run");
 
         public ReadOnlySpan<float> OutputMask => decoder.OutputMask;
 
         public NanoSAM(byte[] encoderModel, byte[] decoderModel, Options options)
         {
+            if (Application.platform == RuntimePlatform.Android)
+            {
+                Debug.LogWarning("Fallback to CPU on Android");
+                // Use the CPU backend for Android
+                options.encoderOptions.executionProvider.executionProviderPriorities[0] = ExecutionProviderPriority.None;
+                options.decoderOptions.executionProviderPriorities[0] = ExecutionProviderPriority.None;
+            }
+
             encoder = new NanoSAMEncoder(encoderModel, options.encoderOptions);
             decoder = new NanoSAMDecoder(decoderModel, options.decoderOptions);
         }
@@ -72,10 +80,10 @@ namespace Microsoft.ML.OnnxRuntime.Examples
 
         public void Run(Texture texture, ReadOnlyCollection<Point> normalizedPoints)
         {
-            runPerfMarker.Begin();
+            runProfMarker.Begin();
             encoder.Run(texture);
             decoder.Run(encoder.ImageEmbeddings, normalizedPoints);
-            runPerfMarker.End();
+            runProfMarker.End();
         }
 
         public void ResetOutput()
@@ -191,19 +199,22 @@ namespace Microsoft.ML.OnnxRuntime.Examples
 
             // point_coords and point_labels
             int length = points.Count;
-            var coords = new float[length * 2];
-            var labels = new float[length];
-            for (int i = 0; i < length; i++)
+            if (length == inputs[2].GetTensorTypeAndShape().ElementCount)
             {
-                var p = points[i];
-                coords[i * 2] = p.point.x * POINT_SCALE.x;
-                coords[i * 2 + 1] = p.point.y * POINT_SCALE.y;
-                labels[i] = p.label;
+                var coords = inputs[1].GetTensorMutableDataAsSpan<float>();
+                var labels = inputs[2].GetTensorMutableDataAsSpan<float>();
+                SetCoordAndLabels(coords, labels, points);
             }
-            inputs[1].Dispose();
-            inputs[2].Dispose();
-            inputs[1] = OrtValue.CreateTensorValueFromMemory(coords, new long[] { 1, length, 2 });
-            inputs[2] = OrtValue.CreateTensorValueFromMemory(labels, new long[] { 1, length });
+            else
+            {
+                var coords = new float[length * 2];
+                var labels = new float[length];
+                SetCoordAndLabels(coords, labels, points);
+                inputs[1].Dispose();
+                inputs[2].Dispose();
+                inputs[1] = OrtValue.CreateTensorValueFromMemory(coords, new long[] { 1, length, 2 });
+                inputs[2] = OrtValue.CreateTensorValueFromMemory(labels, new long[] { 1, length });
+            }
 
             // TODO: mask_input and has_mask_input not used
             // Make example of mask_input
@@ -216,6 +227,18 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         {
             var output = outputs[1].GetTensorMutableDataAsSpan<float>();
             output.Fill(0);
+        }
+
+        private void SetCoordAndLabels(Span<float> coords, Span<float> labels, ReadOnlyCollection<NanoSAM.Point> points)
+        {
+            int length = points.Count;
+            for (int i = 0; i < length; i++)
+            {
+                var p = points[i];
+                coords[i * 2] = p.point.x * POINT_SCALE.x;
+                coords[i * 2 + 1] = p.point.y * POINT_SCALE.y;
+                labels[i] = p.label;
+            }
         }
     }
 }

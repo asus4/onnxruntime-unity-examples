@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -48,24 +49,24 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             downloadLocation = location;
         }
 
-        public async Task<byte[]> Load()
+        public async Task<byte[]> Load(CancellationToken cancellationToken)
         {
             string localPath = LocalPath;
 
             if (File.Exists(localPath))
             {
                 Log($"Cache Loading file from local: {localPath}");
-                return await LoadFromLocal(localPath);
+                return await LoadFromLocal(localPath, cancellationToken);
             }
             else
             {
                 Log($"Cache not found at {localPath}. Loading from: {url}");
-                return await LoadFromRemote(url, localPath);
+                return await LoadFromRemote(url, localPath, cancellationToken);
             }
         }
 
         // Need to use WebRequest for local file download in Android
-        private static async Task<byte[]> LoadFromLocal(string localPath)
+        private static async Task<byte[]> LoadFromLocal(string localPath, CancellationToken cancellationToken)
         {
             if (!localPath.StartsWith("file:/"))
             {
@@ -76,6 +77,11 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             var operation = request.SendWebRequest();
             while (!operation.isDone)
             {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    request.Abort();
+                    throw new TaskCanceledException();
+                }
                 await Task.Yield();
             }
 
@@ -87,19 +93,26 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             return request.downloadHandler.data;
         }
 
-        private static async Task<byte[]> LoadFromRemote(string remotePath, string localPath)
+        private static async Task<byte[]> LoadFromRemote(string remotePath, string localPath, CancellationToken cancellationToken)
         {
             using var handler = new DownloadHandlerFile(localPath);
+            handler.removeFileOnAbort = true;
             using var request = new UnityWebRequest(remotePath, "GET", handler, null);
 
             var operation = request.SendWebRequest();
             while (!operation.isDone)
             {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    request.Abort();
+                    throw new TaskCanceledException();
+                }
                 await Task.Yield();
             }
 
             if (request.result != UnityWebRequest.Result.Success)
             {
+                request.Abort();
                 throw new Exception($"Failed to download {remotePath}: {request.error}");
             }
 
