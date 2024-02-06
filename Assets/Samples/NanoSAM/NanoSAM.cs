@@ -43,6 +43,14 @@ namespace Microsoft.ML.OnnxRuntime.Examples
 
         public NanoSAM(byte[] encoderModel, byte[] decoderModel, Options options)
         {
+            if (Application.platform == RuntimePlatform.Android)
+            {
+                Debug.LogWarning("Fallback to CPU on Android");
+                // Use the CPU backend for Android
+                options.encoderOptions.executionProvider.executionProviderPriorities[0] = ExecutionProviderPriority.None;
+                options.decoderOptions.executionProviderPriorities[0] = ExecutionProviderPriority.None;
+            }
+
             encoder = new NanoSAMEncoder(encoderModel, options.encoderOptions);
             decoder = new NanoSAMDecoder(decoderModel, options.decoderOptions);
         }
