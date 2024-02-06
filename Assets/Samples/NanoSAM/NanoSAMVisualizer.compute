@@ -3,12 +3,6 @@
 Buffer<float> _InputTensor;
 RWTexture2D<float4> _OutputTex;
 
-struct ARG
-{
-    int index;
-    float value;
-};
-
 uint2 _OutputSize;
 float _Threshold;
 float4 _MaskColor;
@@ -19,7 +13,7 @@ uint4 IdxNCHW(uint4 c, uint y, uint x)
     return c * _OutputSize.x * _OutputSize.y + y * _OutputSize.x + x;
 }
 
-// TODO: Implement mask anti-aliasing
+// TODO: Implement mask anti-aliasing using joint-bilateral filter
 [numthreads(8,8,1)]
 void VisualizeMask (uint2 id : SV_DispatchThreadID)
 {
