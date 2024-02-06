@@ -22,6 +22,8 @@ Examples of [ONNX Runtime Unity Plugin](https://github.com/asus4/onnxruntime-uni
 
 ONNX examples are available in the `Assets/Examples` folder. Pull the repository and open the project in Unity.
 
+Following demos are available:
+
 - [MobileOne](https://github.com/apple/ml-mobileone): Image classification
 - [Yolox](https://github.com/Megvii-BaseDetection/YOLOX): Object detection
 - [NanoSAM](https://github.com/NVIDIA-AI-IOT/nanosam/): Object Segmentation
@@ -52,11 +54,9 @@ Check out the [asus4/onnxruntime-unity](https://github.com/asus4/onnxruntime-uni
 
 ## How to convert Onnx to Ort format
 
-On the mobile platform, the *.onnx model is not recommended, although it's supported on the desktop. Convert the Onnx model to Ort format.
+On the mobile platform, the *.onnx model is not recommended, although it's supported. Convert the Onnx model to Ort format.
 
 Please refer to the [ORT model format](https://onnxruntime.ai/docs/performance/model-optimizations/ort-format-models.html) for more details.
-
-**TL;DR;**
 
 ```sh
 # Recommend using python virtual environment
