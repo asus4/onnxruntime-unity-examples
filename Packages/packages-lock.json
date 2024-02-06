@@ -1,45 +1,45 @@
 {
   "dependencies": {
     "com.github.asus4.onnxruntime": {
-      "version": "0.1.11",
+      "version": "0.1.12",
       "depth": 0,
       "source": "registry",
       "dependencies": {},
       "url": "https://registry.npmjs.com"
     },
     "com.github.asus4.onnxruntime-extensions": {
-      "version": "0.1.11",
+      "version": "0.1.12",
       "depth": 0,
       "source": "registry",
       "dependencies": {
-        "com.github.asus4.onnxruntime": "0.1.11"
+        "com.github.asus4.onnxruntime": "0.1.12"
       },
       "url": "https://registry.npmjs.com"
     },
     "com.github.asus4.onnxruntime.linux-x64-gpu": {
-      "version": "0.1.11",
+      "version": "0.1.12",
       "depth": 0,
       "source": "registry",
       "dependencies": {
-        "com.github.asus4.onnxruntime": "0.1.11"
+        "com.github.asus4.onnxruntime": "0.1.12"
       },
       "url": "https://registry.npmjs.com"
     },
     "com.github.asus4.onnxruntime.unity": {
-      "version": "0.1.11",
+      "version": "0.1.12",
       "depth": 0,
       "source": "registry",
       "dependencies": {
-        "com.github.asus4.onnxruntime": "0.1.11"
+        "com.github.asus4.onnxruntime": "0.1.12"
       },
       "url": "https://registry.npmjs.com"
     },
     "com.github.asus4.onnxruntime.win-x64-gpu": {
-      "version": "0.1.11",
+      "version": "0.1.12",
       "depth": 0,
       "source": "registry",
       "dependencies": {
-        "com.github.asus4.onnxruntime": "0.1.11"
+        "com.github.asus4.onnxruntime": "0.1.12"
       },
       "url": "https://registry.npmjs.com"
     },

@@ -9,7 +9,7 @@ Examples of [ONNX Runtime Unity Plugin](https://github.com/asus4/onnxruntime-uni
 ## Tested environment
 
 - Unity: 2022.3.16f1 (LTS)
-- ONNX Runtime: 1.16.3
+- ONNX Runtime: 1.17.0
 - macOS, iOS, Android, Windows, Linux.
   - Complete List for [:link: Supported Execution Providers](https://github.com/asus4/onnxruntime-unity?tab=readme-ov-file#execution-providers)
 
@@ -24,6 +24,7 @@ ONNX examples are available in the `Assets/Examples` folder. Pull the repository
 
 - [MobileOne](https://github.com/apple/ml-mobileone): Image classification
 - [Yolox](https://github.com/Megvii-BaseDetection/YOLOX): Object detection
+- [NanoSAM](https://github.com/NVIDIA-AI-IOT/nanosam/): Object Segmentation
 
 ### Install pre-built ONNX Runtime via Unity Package Manager (UPM)
 
@@ -42,9 +43,9 @@ Check out the [asus4/onnxruntime-unity](https://github.com/asus4/onnxruntime-uni
   ]
   "dependencies": {
     // Core library
-    "com.github.asus4.onnxruntime": "0.1.11",
+    "com.github.asus4.onnxruntime": "0.1.12",
     // (Optional) Utilities for Unity
-    "com.github.asus4.onnxruntime.unity": "0.1.11",
+    "com.github.asus4.onnxruntime.unity": "0.1.12",
     ... other dependencies
   }
 ```
