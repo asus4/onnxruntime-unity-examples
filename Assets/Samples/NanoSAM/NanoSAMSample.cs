@@ -76,8 +76,9 @@ public sealed class NanoSAMSample : MonoBehaviour
         // Create mask dropdown options
         maskDropdown.ClearOptions();
         maskDropdown.AddOptions(new List<string> {
-            "Mask 0", "Mask 1", "Mask 2", "Mask 3",
+            "Negative", "Positive",
         });
+        maskDropdown.value = 1;
         resetButton.onClick.AddListener(ResetMask);
 
         // Hide loading indicator
@@ -119,25 +120,16 @@ public sealed class NanoSAMSample : MonoBehaviour
         // Flip Y axis (top 0.0 to bottom 1.0)
         point.y = 1.0f - point.y;
 
+        // 0: negative, 1: positive
+        int label = maskDropdown.value;
 
-        int label = maskDropdown.value + 1;
+        // Create point object
+        points.Add(new NanoSAM.Point(point, label));
+        // Add image
+        var image = Instantiate(pointPrefab, preview);
+        image.rectTransform.anchoredPosition = rectPosition;
+        pointImages.Add(image);
 
-        if (points.Count == 0)
-        {
-            // Create point object
-            points.Add(new NanoSAM.Point(point, label));
-            // Add image
-            var image = Instantiate(pointPrefab, preview);
-            image.rectTransform.anchoredPosition = rectPosition;
-            pointImages.Add(image);
-        }
-        else
-        {
-            // TODO: support multiple point segmentation
-            // Replace existing points for now.
-            points[0] = new NanoSAM.Point(point, label);
-            pointImages[0].rectTransform.anchoredPosition = rectPosition;
-        }
 
         Debug.Log($"Add new point: {point}, label:{label}");
         Run(points);
