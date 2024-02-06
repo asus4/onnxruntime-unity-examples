@@ -37,7 +37,9 @@ public sealed class NanoSAMSample : MonoBehaviour
     private TMPro.TMP_Dropdown maskDropdown;
 
     [SerializeField]
-    private Image pointPrefab;
+    private Image positivePointPrefab;
+    [SerializeField]
+    private Image negativePointPrefab;
 
     private readonly List<NanoSAM.Point> points = new();
     private readonly List<Image> pointImages = new();
@@ -126,10 +128,10 @@ public sealed class NanoSAMSample : MonoBehaviour
         // Create point object
         points.Add(new NanoSAM.Point(point, label));
         // Add image
-        var image = Instantiate(pointPrefab, preview);
+        var prefab = label == 0 ? negativePointPrefab : positivePointPrefab;
+        var image = Instantiate(prefab, preview);
         image.rectTransform.anchoredPosition = rectPosition;
         pointImages.Add(image);
-
 
         Debug.Log($"Add new point: {point}, label:{label}");
         Run(points);

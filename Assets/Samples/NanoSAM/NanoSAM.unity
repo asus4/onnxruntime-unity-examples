@@ -1262,7 +1262,8 @@ MonoBehaviour:
   loadingIndicator: {fileID: 1202023927}
   resetButton: {fileID: 1351271392}
   maskDropdown: {fileID: 1362266621}
-  pointPrefab: {fileID: 3725194003213696224, guid: a872bab64082e4f2d8e07f392e672825, type: 3}
+  positivePointPrefab: {fileID: 3725194003213696224, guid: a872bab64082e4f2d8e07f392e672825, type: 3}
+  negativePointPrefab: {fileID: 2167093268705114970, guid: 379d6e89f570e4cfb8958e7881c20a64, type: 3}
 --- !u!114 &1926674704
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1276,11 +1277,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   shader: {fileID: 7200000, guid: dba6fd529e3c04def88e07adc84837ef, type: 3}
-  maskColors:
-  - {r: 0.21933962, g: 0.8773585, b: 0.63549215, a: 1}
-  - {r: 1, g: 0.90322685, b: 0.033018887, a: 1}
-  - {r: 0.28773582, g: 0.78284514, b: 1, a: 1}
-  - {r: 0.9150943, g: 0.4873042, b: 0.41869882, a: 1}
+  maskColor: {r: 0, g: 0.725, b: 0.46, a: 1}
   threshold: 0.1
   onTexture:
     m_PersistentCalls:
