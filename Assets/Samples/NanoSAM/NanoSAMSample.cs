@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Threading;
 using Microsoft.ML.OnnxRuntime.Examples;
 using TextureSource;
 using UnityEngine;
@@ -46,6 +47,7 @@ public sealed class NanoSAMSample : MonoBehaviour
     private NanoSAM inference;
     private Texture inputTexture;
     private NanoSAMVisualizer visualizer;
+    private CancellationTokenSource cts;
 
     private async void Start()
     {
@@ -53,8 +55,9 @@ public sealed class NanoSAMSample : MonoBehaviour
         loadingIndicator.SetActive(true);
 
         // Load model files, this will take some time at first run
-        byte[] encoderModel = await encoderModelFile.Load();
-        byte[] decoderModel = await decoderModelFile.Load();
+        cts = new CancellationTokenSource();
+        byte[] encoderModel = await encoderModelFile.Load(cts.Token);
+        byte[] decoderModel = await decoderModelFile.Load(cts.Token);
 
         inference = new NanoSAM(encoderModel, decoderModel, options);
         visualizer = GetComponent<NanoSAMVisualizer>();
@@ -89,6 +92,8 @@ public sealed class NanoSAMSample : MonoBehaviour
 
     private void OnDestroy()
     {
+        cts?.Cancel();
+
         if (resetButton != null)
         {
             resetButton.onClick.RemoveListener(ResetMask);
