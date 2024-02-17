@@ -6,22 +6,19 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 /// <summary>
-/// Nvidia's NanoSAM Sample
-/// https://github.com/NVIDIA-AI-IOT/nanosam/
+/// EfficientSAM Sample
+/// https://github.com/yformer/EfficientSAM
 /// 
 /// See LICENSE for full license information.
-[RequireComponent(typeof(VirtualTextureSource), typeof(NanoSAMVisualizer))]
-public sealed class NanoSAMSample : MonoBehaviour
+[RequireComponent(typeof(VirtualTextureSource), typeof(EfficientSAMVisualizer))]
+public sealed class EfficientSAMSample : MonoBehaviour
 {
-    [Header("NanoSAM Options")]
+    [Header("EfficientSAM Options")]
     [SerializeField]
-    private RemoteFile encoderModelFile = new("https://huggingface.co/asus4/nanosam-ort/resolve/main/resnet18_image_encoder.with_runtime_opt.ort?download=true");
+    private RemoteFile modelFile = new("https://github.com/yformer/EfficientSAM/raw/main/weights/efficient_sam_vitt.onnx");
 
     [SerializeField]
-    private RemoteFile decoderModelFile = new("https://huggingface.co/asus4/nanosam-ort/resolve/main/mobile_sam_mask_decoder.with_runtime_opt.ort?download=true");
-
-    [SerializeField]
-    private NanoSAM.Options options;
+    private EfficientSAM.Options options;
 
     [Header("UI")]
     [SerializeField]
@@ -41,24 +38,22 @@ public sealed class NanoSAMSample : MonoBehaviour
     [SerializeField]
     private Image negativePointPrefab;
 
-    private readonly List<NanoSAM.Point> points = new();
+    private readonly List<EfficientSAM.Point> points = new();
     private readonly List<Image> pointImages = new();
-    private NanoSAM inference;
+    private EfficientSAM inference;
     private Texture inputTexture;
-    private NanoSAMVisualizer visualizer;
+    private EfficientSAMVisualizer visualizer;
 
     private async void Start()
     {
         // Show loading indicator
         loadingIndicator.SetActive(true);
 
-        // Load model files, this will take some time at first run
         var token = destroyCancellationToken;
-        byte[] encoderModel = await encoderModelFile.Load(token);
-        byte[] decoderModel = await decoderModelFile.Load(token);
+        byte[] modelBytes = await modelFile.Load(token);
 
-        inference = new NanoSAM(encoderModel, decoderModel, options);
-        visualizer = GetComponent<NanoSAMVisualizer>();
+        inference = new EfficientSAM(modelBytes, options);
+        visualizer = GetComponent<EfficientSAMVisualizer>();
 
         // Register pointer down event to preview rect
         var callback = new EventTrigger.TriggerEvent();
@@ -127,7 +122,7 @@ public sealed class NanoSAMSample : MonoBehaviour
         int label = maskDropdown.value;
 
         // Create point object
-        points.Add(new NanoSAM.Point(point, label));
+        points.Add(new EfficientSAM.Point(point, label));
         // Add image
         var prefab = label == 0 ? negativePointPrefab : positivePointPrefab;
         var image = Instantiate(prefab, preview);
@@ -148,17 +143,20 @@ public sealed class NanoSAMSample : MonoBehaviour
         pointImages.Clear();
 
         inference.ResetOutput();
-        visualizer.UpdateMask(inference.OutputMask, inputTexture);
+        Vector2Int inputSize = inference.InputSize;
+        visualizer.UpdateMask(inference.OutputMask, inputSize, inputTexture);
     }
 
-    private void Run(List<NanoSAM.Point> points)
+    private void Run(List<EfficientSAM.Point> points)
     {
         if (inputTexture == null)
         {
             return;
         }
 
+        // TODO: Implement async run
         inference.Run(inputTexture, points.AsReadOnly());
-        visualizer.UpdateMask(inference.OutputMask, inputTexture);
+        Vector2Int inputSize = inference.InputSize;
+        visualizer.UpdateMask(inference.OutputMask, inputSize, inputTexture);
     }
 }

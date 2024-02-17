@@ -7,7 +7,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
     public class FpsText : MonoBehaviour
     {
         private TMPro.TMP_Text text;
-        private StringBuilder sb = new StringBuilder();
+        private readonly StringBuilder sb = new();
 
         private void Start()
         {
