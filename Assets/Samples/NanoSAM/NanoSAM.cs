@@ -1,9 +1,9 @@
 using System;
+using System.Collections.ObjectModel;
 using Microsoft.ML.OnnxRuntime.Unity;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using UnityEngine;
 using Unity.Profiling;
-using System.Collections.ObjectModel;
 
 namespace Microsoft.ML.OnnxRuntime.Examples
 {

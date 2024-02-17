@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Threading;
 using Microsoft.ML.OnnxRuntime.Examples;
 using TextureSource;
 using UnityEngine;
