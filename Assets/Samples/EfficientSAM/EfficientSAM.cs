@@ -1,9 +1,9 @@
 using System;
+using System.Collections.ObjectModel;
 using Microsoft.ML.OnnxRuntime.Unity;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using UnityEngine;
 using Unity.Profiling;
-using System.Collections.ObjectModel;
 
 namespace Microsoft.ML.OnnxRuntime.Examples
 {
@@ -27,32 +27,70 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         }
 
         [Serializable]
-        public class Options
+        public class Options : ImageInferenceOptions
         {
-            public ImageInferenceOptions encoderOptions;
-            public ExecutionProviderOptions decoderOptions;
+            public int maxResolution = 512;
         }
 
-        private readonly EfficientSAMEncoder encoder;
-        private readonly EfficientSAMDecoder decoder;
+        private readonly Options options;
+        private readonly InferenceSession session;
+        private readonly SessionOptions sessionOptions;
+        private readonly RunOptions runOptions;
+        private readonly OrtValue[] inputs;
+        private readonly string[] outputNames;
+        private readonly OrtValue[] outputs;
+
+        private TextureToTensor<float> textureToTensor;
         private bool disposed;
 
+        static readonly ProfilerMarker preprocessPerfMarker = new($"{typeof(EfficientSAM).Name}.Preprocess");
         static readonly ProfilerMarker runProfMarker = new($"{typeof(EfficientSAM).Name}.Run");
 
-        public ReadOnlySpan<float> OutputMask => decoder.OutputMask;
+        public Vector2Int InputSize => new(textureToTensor.width, textureToTensor.height);
+        public ReadOnlySpan<float> OutputMask => outputs[0].GetTensorDataAsSpan<float>();
 
-        public EfficientSAM(byte[] encoderModel, byte[] decoderModel, Options options)
+        public EfficientSAM(byte[] encoderModel, Options options)
         {
+            this.options = options;
             if (Application.platform == RuntimePlatform.Android)
             {
                 Debug.LogWarning("Fallback to CPU on Android");
                 // Use the CPU backend for Android
-                options.encoderOptions.executionProvider.executionProviderPriorities[0] = ExecutionProviderPriority.None;
-                options.decoderOptions.executionProviderPriorities[0] = ExecutionProviderPriority.None;
+                options.executionProvider.executionProviderPriorities[0] = ExecutionProviderPriority.None;
             }
 
-            encoder = new EfficientSAMEncoder(encoderModel, options.encoderOptions);
-            decoder = new EfficientSAMDecoder(decoderModel, options.decoderOptions);
+            try
+            {
+                sessionOptions = new SessionOptions();
+                options.executionProvider.AppendExecutionProviders(sessionOptions);
+                session = new InferenceSession(encoderModel, sessionOptions);
+                runOptions = new RunOptions();
+            }
+            catch (Exception e)
+            {
+                session?.Dispose();
+                sessionOptions?.Dispose();
+                runOptions?.Dispose();
+                throw e;
+            }
+            session.LogIOInfo();
+
+            /*
+            Input:
+            [batched_images] shape: -1,3,-1,-1, type: System.Single isTensor: True
+            [batched_point_coords] shape: 1,1,-1,2, type: System.Single isTensor: True
+            [batched_point_labels] shape: 1,1,-1, type: System.Single isTensor: True
+
+            Output:
+            [output_masks] shape: 1,1,-1,-1,-1, type: System.Single isTensor: True
+            [iou_predictions] shape: 1,1,-1, type: System.Single isTensor: True
+            [onnx::Shape_2776] shape: -1,-1,-1,-1, type: System.Single isTensor: True
+            */
+
+            inputs = new OrtValue[3];
+            // requires only masks
+            outputNames = new string[] { "output_masks" };
+            outputs = new OrtValue[1];
         }
 
         public void Dispose()
@@ -66,177 +104,110 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             if (disposed) { return; }
             if (disposing)
             {
-                encoder?.Dispose();
-                decoder?.Dispose();
+                textureToTensor?.Dispose();
+                session?.Dispose();
+                sessionOptions?.Dispose();
+                runOptions?.Dispose();
+                foreach (var input in inputs)
+                {
+                    input?.Dispose();
+                }
+                foreach (var output in outputs)
+                {
+                    output?.Dispose();
+                }
                 disposed = true;
             }
         }
 
-        public void Run(Texture texture, Vector2 normalizedPoint)
-        {
-            var point = new Point(normalizedPoint, 1);
-            Run(texture, Array.AsReadOnly(new Point[] { point }));
-        }
-
         public void Run(Texture texture, ReadOnlyCollection<Point> normalizedPoints)
         {
+            // Preprocess
+            preprocessPerfMarker.Begin();
+            (int width, int height) = LimitInputSize(texture, options.maxResolution);
+            EnsureInputsOutputs(width, height, normalizedPoints.Count);
+            textureToTensor.Transform(texture, options.aspectMode);
+
+            var imageSpan = inputs[0].GetTensorMutableDataAsSpan<float>();
+            textureToTensor.TensorData.CopyTo(imageSpan);
+
+            var coords = inputs[1].GetTensorMutableDataAsSpan<float>();
+            var labels = inputs[2].GetTensorMutableDataAsSpan<float>();
+            SetCoordAndLabels(coords, labels, normalizedPoints, width, height);
+            preprocessPerfMarker.End();
+
+            // Run session
             runProfMarker.Begin();
-            encoder.Run(texture);
-            decoder.Run(encoder.ImageEmbeddings, normalizedPoints);
+            session.Run(runOptions, session.InputNames, inputs, outputNames, outputs);
             runProfMarker.End();
+
+            // Postprocess
+            // long[] shape = outputs[0].GetTypeInfo().TensorTypeAndShapeInfo.Shape;
+            // Debug.Log($"Output shape: {string.Join(",", shape)}");
         }
 
         public void ResetOutput()
         {
-            decoder.ResetOutput();
-        }
-    }
-
-    internal sealed class EfficientSAMEncoder : ImageInference<float>
-    {
-        public OrtValue ImageEmbeddings => outputs[0];
-
-        public EfficientSAMEncoder(byte[] model, ImageInferenceOptions options) : base(model, options)
-        {
-        }
-    }
-
-    internal sealed class EfficientSAMDecoder : IDisposable
-    {
-        private static readonly Vector2Int ENCODER_SIZE = new(1024, 1024);
-        private static readonly Vector2Int MASK_SIZE = new(256, 256);
-        private static readonly Vector2 POINT_SCALE = new(ENCODER_SIZE.x, ENCODER_SIZE.y);
-
-        private readonly SessionOptions sessionOptions;
-        private readonly RunOptions runOptions;
-        private readonly InferenceSession session;
-
-
-        private readonly OrtValue[] inputs;
-        private readonly OrtValue[] outputs;
-
-        public ReadOnlySpan<float> OutputMask => outputs[1].GetTensorDataAsSpan<float>();
-
-        public EfficientSAMDecoder(byte[] model, ExecutionProviderOptions options)
-        {
-            try
-            {
-                sessionOptions = new SessionOptions();
-                options.AppendExecutionProviders(sessionOptions);
-                session = new InferenceSession(model, sessionOptions);
-                runOptions = new RunOptions();
-            }
-            catch (Exception e)
-            {
-                session?.Dispose();
-                sessionOptions?.Dispose();
-                throw e;
-            }
-            session.LogIOInfo();
-
-            /*
-            Input:
-            [image_embeddings] shape: 1,256,64,64, type: System.Single
-            [point_coords] shape: 1,-1,2, type: System.Single
-            [point_labels] shape: 1,-1, type: System.Single
-            [mask_input] shape: 1,1,256,256, type: System.Single
-            [has_mask_input] shape: 1, type: System.Single
-
-            Output:
-            [iou_predictions] shape: -1,4, type: System.Single
-            [low_res_masks] shape: -1,-1,-1,-1, type: System.Single
-            */
-
-            // Allocate inputs/outputs
-            var inputMetadata = session.InputMetadata;
-
-            var allocator = OrtAllocator.DefaultInstance;
-            inputs = new OrtValue[]
-            {
-                // image_embeddings
-                null, // shared from encoder
-                // point_coords
-                OrtValue.CreateAllocatedTensorValue(allocator, TensorElementType.Float, new long[] { 1, 1, 2 }),
-                // point_labels
-                OrtValue.CreateAllocatedTensorValue(allocator, TensorElementType.Float, new long[] { 1, 1 }),
-                // mask_input
-                inputMetadata["mask_input"].CreateTensorOrtValue(),
-                // has_mask_input
-                OrtValue.CreateTensorValueFromMemory(new float[]{ 0 }, new long[] { 1 }),
-            };
             // Fill mask
-            var mask = inputs[3].GetTensorMutableDataAsSpan<float>();
-            mask.Fill(0);
-
-            outputs = new OrtValue[]
-            {
-                // iou_predictions
-                OrtValue.CreateAllocatedTensorValue(allocator, TensorElementType.Float, new long[] { 1, 4 }),
-                // low_res_masks
-                OrtValue.CreateAllocatedTensorValue(allocator, TensorElementType.Float, new long[] { 1, 4, MASK_SIZE.x, MASK_SIZE.y }),
-            };
+            var mask = outputs[0].GetTensorMutableDataAsSpan<float>();
+            mask.Fill(0f);
         }
 
-        public void Dispose()
+        private static (int width, int height) LimitInputSize(Texture texture, int maxSize)
         {
-            runOptions?.Dispose();
-            session?.Dispose();
-            sessionOptions?.Dispose();
-            foreach (var input in inputs)
+            if (texture.width <= maxSize && texture.height <= maxSize)
             {
-                input?.Dispose();
+                return (texture.width, texture.height);
             }
-            foreach (var output in outputs)
-            {
-                output?.Dispose();
-            }
+            float aspect = texture.width / (float)texture.height;
+            return aspect > 1
+                ? (maxSize, Mathf.RoundToInt(texture.height * (maxSize / (float)texture.width)))
+                : (Mathf.RoundToInt(texture.width * (maxSize / (float)texture.height)), maxSize);
         }
 
-        public void Run(OrtValue imageEmbeddings, ReadOnlyCollection<EfficientSAM.Point> points)
+        private void EnsureInputsOutputs(int width, int height, int pointCount)
         {
-            // image_embeddings
-            inputs[0] = imageEmbeddings;
+            if (textureToTensor == null || textureToTensor.width != width || textureToTensor.height != height)
+            {
+                textureToTensor?.Dispose();
+                textureToTensor = new TextureToTensor<float>(width, height);
 
-            // point_coords and point_labels
-            int length = points.Count;
-            if (length == inputs[2].GetTensorTypeAndShape().ElementCount)
-            {
-                var coords = inputs[1].GetTensorMutableDataAsSpan<float>();
-                var labels = inputs[2].GetTensorMutableDataAsSpan<float>();
-                SetCoordAndLabels(coords, labels, points);
-            }
-            else
-            {
-                var coords = new float[length * 2];
-                var labels = new float[length];
-                SetCoordAndLabels(coords, labels, points);
-                inputs[1].Dispose();
-                inputs[2].Dispose();
-                inputs[1] = OrtValue.CreateTensorValueFromMemory(coords, new long[] { 1, length, 2 });
-                inputs[2] = OrtValue.CreateTensorValueFromMemory(labels, new long[] { 1, length });
+                inputs[0]?.Dispose();
+                inputs[0] = OrtValue.CreateAllocatedTensorValue(
+                    OrtAllocator.DefaultInstance, TensorElementType.Float,
+                    new long[] { 1, 3, height, width });
+
+                outputs[0]?.Dispose();
+                outputs[0] = OrtValue.CreateAllocatedTensorValue(
+                    OrtAllocator.DefaultInstance, TensorElementType.Float,
+                    new long[] { 1, 1, 3, height, width });
             }
 
-            // TODO: mask_input and has_mask_input not used
-            // Make example of mask_input
+            if (inputs[2] == null || inputs[2].GetTensorTypeAndShape().ElementCount != pointCount)
+            {
+                inputs[1]?.Dispose();
+                inputs[2]?.Dispose();
 
-            // Run
-            session.Run(runOptions, session.InputNames, inputs, session.OutputNames, outputs);
+                inputs[1] = OrtValue.CreateAllocatedTensorValue(
+                    OrtAllocator.DefaultInstance, TensorElementType.Float,
+                    new long[] { 1, 1, pointCount, 2 });
+                inputs[2] = OrtValue.CreateAllocatedTensorValue(
+                    OrtAllocator.DefaultInstance, TensorElementType.Float,
+                    new long[] { 1, 1, pointCount });
+            }
         }
 
-        public void ResetOutput()
-        {
-            var output = outputs[1].GetTensorMutableDataAsSpan<float>();
-            output.Fill(0);
-        }
-
-        private void SetCoordAndLabels(Span<float> coords, Span<float> labels, ReadOnlyCollection<EfficientSAM.Point> points)
+        private static void SetCoordAndLabels(
+            Span<float> coords, Span<float> labels,
+            ReadOnlyCollection<Point> points,
+            int width, int height)
         {
             int length = points.Count;
             for (int i = 0; i < length; i++)
             {
                 var p = points[i];
-                coords[i * 2] = p.point.x * POINT_SCALE.x;
-                coords[i * 2 + 1] = p.point.y * POINT_SCALE.y;
+                coords[i * 2] = p.point.x * width;
+                coords[i * 2 + 1] = p.point.y * height;
                 labels[i] = p.label;
             }
         }

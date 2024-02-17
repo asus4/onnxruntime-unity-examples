@@ -1243,21 +1243,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e9a2b07f340b0477380e0eeb57f46f8f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  encoderModelFile:
-    url: https://huggingface.co/asus4/nanosam-ort/resolve/main/resnet18_image_encoder.with_runtime_opt.ort?download=true
-    downloadLocation: 0
-  decoderModelFile:
-    url: https://huggingface.co/asus4/nanosam-ort/resolve/main/mobile_sam_mask_decoder.with_runtime_opt.ort?download=true
-    downloadLocation: 0
+  model: {fileID: 1840921532545725537, guid: f9ddd7e7263ea4d679fc9c1e078c6518, type: 3}
   options:
-    encoderOptions:
-      aspectMode: 0
-      mean: {x: 0.485, y: 0.456, z: 0.406}
-      std: {x: 0.229, y: 0.224, z: 0.225}
-      executionProvider:
-        executionProviderPriorities: 0100000002000000
-    decoderOptions:
-      executionProviderPriorities: 0100000002000000
+    aspectMode: 0
+    mean: {x: 0.485, y: 0.456, z: 0.406}
+    std: {x: 0.229, y: 0.224, z: 0.225}
+    executionProvider:
+      executionProviderPriorities: 0100000000000000
+    maxResolution: 512
   preview: {fileID: 429657176}
   loadingIndicator: {fileID: 1202023927}
   resetButton: {fileID: 1351271392}
@@ -1278,7 +1271,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   tensorToTexShader: {fileID: 7200000, guid: bc76a559f70b846c3975d3a7adc7c321, type: 3}
   threshold: 0.01
-  useFilter: 0
+  useFilter: 1
   filterShader: {fileID: 7200000, guid: 39cc61383b0b44bd59701a345417e114, type: 3}
   sigmaSpace: 2
   sigmaColor: 1

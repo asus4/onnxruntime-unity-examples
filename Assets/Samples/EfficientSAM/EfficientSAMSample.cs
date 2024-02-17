@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Threading;
 using Microsoft.ML.OnnxRuntime.Examples;
 using TextureSource;
 using UnityEngine;
@@ -7,7 +6,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 /// <summary>
-/// Nvidia's EfficientSAM Sample
+/// EfficientSAM Sample
 /// https://github.com/yformer/EfficientSAM
 /// 
 /// See LICENSE for full license information.
@@ -16,10 +15,7 @@ public sealed class EfficientSAMSample : MonoBehaviour
 {
     [Header("EfficientSAM Options")]
     [SerializeField]
-    private RemoteFile encoderModelFile = new("https://huggingface.co/asus4/nanosam-ort/resolve/main/resnet18_image_encoder.with_runtime_opt.ort?download=true");
-
-    [SerializeField]
-    private RemoteFile decoderModelFile = new("https://huggingface.co/asus4/nanosam-ort/resolve/main/mobile_sam_mask_decoder.with_runtime_opt.ort?download=true");
+    private RemoteFile modelFile = new("https://github.com/yformer/EfficientSAM/raw/main/weights/efficient_sam_vitt.onnx");
 
     [SerializeField]
     private EfficientSAM.Options options;
@@ -47,19 +43,16 @@ public sealed class EfficientSAMSample : MonoBehaviour
     private EfficientSAM inference;
     private Texture inputTexture;
     private EfficientSAMVisualizer visualizer;
-    private CancellationTokenSource cts;
 
     private async void Start()
     {
         // Show loading indicator
         loadingIndicator.SetActive(true);
 
-        // Load model files, this will take some time at first run
-        cts = new CancellationTokenSource();
-        byte[] encoderModel = await encoderModelFile.Load(cts.Token);
-        byte[] decoderModel = await decoderModelFile.Load(cts.Token);
+        var token = destroyCancellationToken;
+        byte[] modelBytes = await modelFile.Load(token);
 
-        inference = new EfficientSAM(encoderModel, decoderModel, options);
+        inference = new EfficientSAM(modelBytes, options);
         visualizer = GetComponent<EfficientSAMVisualizer>();
 
         // Register pointer down event to preview rect
@@ -92,8 +85,6 @@ public sealed class EfficientSAMSample : MonoBehaviour
 
     private void OnDestroy()
     {
-        cts?.Cancel();
-
         if (resetButton != null)
         {
             resetButton.onClick.RemoveListener(ResetMask);
@@ -152,7 +143,8 @@ public sealed class EfficientSAMSample : MonoBehaviour
         pointImages.Clear();
 
         inference.ResetOutput();
-        visualizer.UpdateMask(inference.OutputMask, inputTexture);
+        Vector2Int inputSize = inference.InputSize;
+        visualizer.UpdateMask(inference.OutputMask, inputSize, inputTexture);
     }
 
     private void Run(List<EfficientSAM.Point> points)
@@ -162,7 +154,9 @@ public sealed class EfficientSAMSample : MonoBehaviour
             return;
         }
 
+        // TODO: Implement async run
         inference.Run(inputTexture, points.AsReadOnly());
-        visualizer.UpdateMask(inference.OutputMask, inputTexture);
+        Vector2Int inputSize = inference.InputSize;
+        visualizer.UpdateMask(inference.OutputMask, inputSize, inputTexture);
     }
 }

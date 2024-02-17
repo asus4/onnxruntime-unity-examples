@@ -99,8 +99,10 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         }
 #endif // UNITY_EDITOR
 
-        public void UpdateMask(ReadOnlySpan<float> outputMask, Texture guide)
+        public void UpdateMask(ReadOnlySpan<float> outputMask, Vector2Int maskSize, Texture guide)
         {
+            EnsureBuffer(maskSize.x, maskSize.y);
+
             tensorToTexProfMarker.Begin();
             if (outputMask != null)
             {
@@ -118,6 +120,30 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             filterProfMarker.End();
 
             onTexture.Invoke(tex);
+        }
+
+        private void EnsureBuffer(int width, int height)
+        {
+            if (renderTexture != null && renderTexture.width == width && renderTexture.height == height)
+            {
+                return;
+            }
+            if (renderTexture != null)
+            {
+                renderTexture.Release();
+                Destroy(renderTexture);
+            }
+
+            renderTexture = new RenderTexture(width, height, 0, RenderTextureFormat.ARGBHalf)
+            {
+                enableRandomWrite = true
+            };
+            renderTexture.Create();
+
+            maskBuffer?.Release();
+            maskBuffer = new ComputeBuffer(3 * width * height, sizeof(float));
+
+            tensorToTexShader.SetInts("_OutputSize", width, height);
         }
     }
 }

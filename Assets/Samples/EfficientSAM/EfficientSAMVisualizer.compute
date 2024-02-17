@@ -7,7 +7,7 @@ uint2 _OutputSize;
 float _Threshold;
 
 // Get index of NCHW tensor
-uint4 IdxNCHW(uint4 c, uint y, uint x)
+uint3 IdxNCHW(uint3 c, uint y, uint x)
 {
     return c * _OutputSize.x * _OutputSize.y + y * _OutputSize.x + x;
 }
@@ -16,16 +16,16 @@ uint4 IdxNCHW(uint4 c, uint y, uint x)
 void VisualizeMask (uint2 id : SV_DispatchThreadID)
 {
     // Flip Y axis to match Unity coordinate
-    uint4 tid = IdxNCHW(uint4(0, 1, 2, 3), _OutputSize.y - id.y - 1, id.x);
+    uint3 tid = IdxNCHW(uint3(0, 1, 2), _OutputSize.y - id.y - 1, id.x);
 
     float4 mask = float4(
         _InputTensor[tid.x],
         _InputTensor[tid.y],
         _InputTensor[tid.z],
-        _InputTensor[tid.w]
+        1.0
     );
 
-    _OutputTex[id] = any(mask >= _Threshold)
+    _OutputTex[id] = any(mask.xyz >= _Threshold)
         ? float4(1.0, 1.0, 1.0, 1.0)
         : float4(0.0, 0.0, 0.0, 0.0);
 }
