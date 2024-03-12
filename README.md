@@ -12,12 +12,10 @@ NanoSAM
 
 <https://github.com/asus4/onnxruntime-unity-examples/assets/357497/5e2b8712-87cc-4a3a-82b7-f217087a0ed1>
 
-
-
 ## Tested environment
 
-- Unity: 2022.3.16f1 (LTS)
-- ONNX Runtime: 1.17.0
+- Unity: 2022.3.19f1 (LTS)
+- ONNX Runtime: 1.17.1
 - macOS, iOS, Android, Windows, Linux.
   - Complete List for [:link: Supported Execution Providers](https://github.com/asus4/onnxruntime-unity?tab=readme-ov-file#execution-providers)
 
@@ -53,9 +51,9 @@ Check out the [asus4/onnxruntime-unity](https://github.com/asus4/onnxruntime-uni
   ]
   "dependencies": {
     // Core library
-    "com.github.asus4.onnxruntime": "0.1.12",
+    "com.github.asus4.onnxruntime": "0.1.13",
     // (Optional) Utilities for Unity
-    "com.github.asus4.onnxruntime.unity": "0.1.12",
+    "com.github.asus4.onnxruntime.unity": "0.1.13",
     ... other dependencies
   }
 ```
