@@ -1,7 +1,7 @@
 {
   "dependencies": {
     "com.github.asus4.onnxruntime": {
-      "version": "0.1.12",
+      "version": "0.1.13",
       "depth": 0,
       "source": "registry",
       "dependencies": {},
@@ -17,11 +17,11 @@
       "url": "https://registry.npmjs.com"
     },
     "com.github.asus4.onnxruntime.linux-x64-gpu": {
-      "version": "0.1.12",
+      "version": "0.1.13",
       "depth": 0,
       "source": "registry",
       "dependencies": {
-        "com.github.asus4.onnxruntime": "0.1.12"
+        "com.github.asus4.onnxruntime": "0.1.13"
       },
       "url": "https://registry.npmjs.com"
     },
