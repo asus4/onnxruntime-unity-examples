@@ -14,7 +14,7 @@
     "com.github.asus4.onnxruntime.linux-x64-gpu": "0.1.14",
     "com.github.asus4.onnxruntime.unity": "0.1.14",
     "com.github.asus4.onnxruntime.win-x64-gpu": "0.1.14",
-    "com.github.asus4.texture-source": "0.2.2",
+    "com.github.asus4.texture-source": "0.3.0",
     "com.unity.2d.sprite": "1.0.0",
     "com.unity.collections": "2.1.4",
     "com.unity.ide.visualstudio": "2.0.22",
