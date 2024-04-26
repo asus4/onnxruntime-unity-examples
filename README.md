@@ -14,8 +14,8 @@ NanoSAM
 
 ## Tested environment
 
-- Unity: 2022.3.19f1 (LTS)
-- ONNX Runtime: 1.17.1
+- Unity: 2022.3.20f1 (LTS)
+- ONNX Runtime: 1.17.3
 - macOS, iOS, Android, Windows, Linux.
   - Complete List for [:link: Supported Execution Providers](https://github.com/asus4/onnxruntime-unity?tab=readme-ov-file#execution-providers)
 
@@ -51,9 +51,9 @@ Check out the [asus4/onnxruntime-unity](https://github.com/asus4/onnxruntime-uni
   ]
   "dependencies": {
     // Core library
-    "com.github.asus4.onnxruntime": "0.1.13",
+    "com.github.asus4.onnxruntime": "0.1.14",
     // (Optional) Utilities for Unity
-    "com.github.asus4.onnxruntime.unity": "0.1.13",
+    "com.github.asus4.onnxruntime.unity": "0.1.14",
     ... other dependencies
   }
 ```
