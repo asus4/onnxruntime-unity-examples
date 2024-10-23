@@ -44,7 +44,7 @@
       "url": "https://registry.npmjs.com"
     },
     "com.github.asus4.texture-source": {
-      "version": "0.3.0",
+      "version": "0.3.2",
       "depth": 0,
       "source": "registry",
       "dependencies": {
@@ -69,18 +69,19 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.collections": {
-      "version": "2.1.4",
+      "version": "2.5.1",
       "depth": 0,
       "source": "registry",
       "dependencies": {
-        "com.unity.burst": "1.8.4",
+        "com.unity.burst": "1.8.17",
+        "com.unity.test-framework": "1.4.5",
         "com.unity.nuget.mono-cecil": "1.11.4",
-        "com.unity.modules.unityanalytics": "1.0.0"
+        "com.unity.test-framework.performance": "3.0.3"
       },
       "url": "https://packages.unity.com"
     },
     "com.unity.ext.nunit": {
-      "version": "1.0.6",
+      "version": "2.0.3",
       "depth": 2,
       "source": "registry",
       "dependencies": {},
@@ -166,18 +167,28 @@
       }
     },
     "com.unity.test-framework": {
-      "version": "1.1.33",
+      "version": "1.4.5",
       "depth": 1,
       "source": "registry",
       "dependencies": {
-        "com.unity.ext.nunit": "1.0.6",
+        "com.unity.ext.nunit": "2.0.3",
         "com.unity.modules.imgui": "1.0.0",
         "com.unity.modules.jsonserialize": "1.0.0"
       },
       "url": "https://packages.unity.com"
     },
+    "com.unity.test-framework.performance": {
+      "version": "3.0.3",
+      "depth": 1,
+      "source": "registry",
+      "dependencies": {
+        "com.unity.test-framework": "1.1.31",
+        "com.unity.modules.jsonserialize": "1.0.0"
+      },
+      "url": "https://packages.unity.com"
+    },
     "com.unity.textmeshpro": {
-      "version": "3.0.8",
+      "version": "3.0.9",
       "depth": 0,
       "source": "registry",
       "dependencies": {
@@ -263,15 +274,6 @@
       "dependencies": {
         "com.unity.modules.ui": "1.0.0",
         "com.unity.modules.imgui": "1.0.0",
-        "com.unity.modules.jsonserialize": "1.0.0"
-      }
-    },
-    "com.unity.modules.unityanalytics": {
-      "version": "1.0.0",
-      "depth": 1,
-      "source": "builtin",
-      "dependencies": {
-        "com.unity.modules.unitywebrequest": "1.0.0",
         "com.unity.modules.jsonserialize": "1.0.0"
       }
     },
