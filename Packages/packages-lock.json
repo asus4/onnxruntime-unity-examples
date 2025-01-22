@@ -2,7 +2,7 @@
   "dependencies": {
     "com.github.asus4.onnxruntime": {
       "version": "0.2.6",
-      "depth": 1,
+      "depth": 0,
       "source": "registry",
       "dependencies": {},
       "url": "https://registry.npmjs.com"
