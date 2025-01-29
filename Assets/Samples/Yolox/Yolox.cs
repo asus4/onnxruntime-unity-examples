@@ -15,9 +15,11 @@ namespace Microsoft.ML.OnnxRuntime.Examples
     /// See LICENSE for full license information.
     /// https://github.com/Megvii-BaseDetection/YOLOX
     /// 
-    /// Converted Onnx model from PINTO_model_zoo
-    /// Licensed under MIT.
-    /// https://github.com/PINTO0309/PINTO_model_zoo/tree/main/132_YOLOX
+    /// The included model is downloaded from the following link:
+    /// https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1rc0/yolox_nano.onnx
+    /// 
+    /// And converted using Runtime optimization: 
+    /// python -m onnxruntime.tools.convert_onnx_models_to_ort yolox_nano.onnx --optimization_style Runtime
     /// </summary>
     public class Yolox : ImageInference<float>
     {
