@@ -806,7 +806,7 @@ GameObject:
   - component: {fileID: 1926674702}
   - component: {fileID: 1926674703}
   m_Layer: 0
-  m_Name: YoloxSample
+  m_Name: Yolo11SegSample
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -884,7 +884,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c198640d791f8444b808c35e6058e305, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  model: {fileID: 0}
+  model: {fileID: 1840921532545725537, guid: 02a357679f0c24786a2b1c38afb06492, type: 3}
+  options:
+    aspectMode: 2
+    mean: {x: 0, y: 0, z: 0}
+    std: {x: 1, y: 1, z: 1}
+    executionProvider:
+      executionProviderPriorities: 01000000
+    labelFile: {fileID: 4900000, guid: 99c28efdf14034bb8a7680d5a42d7d14, type: 3}
+    maxDetections: 100
+    confidenceThreshold: 0.25
+    nmsThreshold: 0.45
 --- !u!1 &1965107666
 GameObject:
   m_ObjectHideFlags: 0
