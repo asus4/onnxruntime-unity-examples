@@ -1,14 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Runtime.CompilerServices;
 using Microsoft.ML.OnnxRuntime.Unity;
 using UnityEngine;
 using UnityEngine.Assertions;
 using Unity.Collections;
 using Unity.Mathematics;
-using System.IO;
-
 
 namespace Microsoft.ML.OnnxRuntime.Examples
 {
@@ -18,6 +15,9 @@ namespace Microsoft.ML.OnnxRuntime.Examples
     /// https://github.com/ultralytics/ultralytics/blob/main/LICENSE
     /// 
     /// https://docs.ultralytics.com/tasks/segment/
+    /// 
+    /// Original python code: 
+    /// https://github.com/ultralytics/ultralytics/blob/aecf1da32b50e144b226f54ae4e979dc3cc62145/examples/YOLOv8-Segmentation-ONNXRuntime-Python/main.py
     /// </summary>
     public class Yolo11Seg : ImageInference<float>
     {
@@ -26,8 +26,6 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         {
             [Header("YOLO options")]
             public TextAsset labelFile;
-            [Range(1, 100)]
-            public int maxDetections = 100;
             [Range(0f, 1f)]
             public float confidenceThreshold = 0.25f;
             [Range(0f, 1f)]
@@ -59,13 +57,13 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         public readonly ReadOnlyCollection<string> labelNames;
 
         // [0: predictions] shape: 1,116,8400 (Batch_size=1, xywh_conf_cls_nm, Num_anchors)
-        private readonly int[] output0Shape;
         // [1: protos] shape: 1,32,160,160
-        private readonly int[] output1Shape;
-        private readonly float[] tOutput0; // transpose of output0
+        private readonly int2 output0Shape;
         private NativeArray<Detection> proposalsArray;
         private NativeArray<Detection> detectionsArray;
         private int detectionCount = 0;
+
+        public ReadOnlySpan<Detection> Detections => detectionsArray.AsReadOnlySpan()[..detectionCount];
 
         public Yolo11Seg(byte[] model, Options options)
             : base(model, options)
@@ -73,20 +71,18 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             this.options = options;
 
             Assert.AreEqual(2, outputs.Count);
-            output0Shape = Array.ConvertAll(outputs[0].GetTensorTypeAndShape().Shape, x => (int)x);
-            output1Shape = Array.ConvertAll(outputs[1].GetTensorTypeAndShape().Shape, x => (int)x);
+            var output0Shape = Array.ConvertAll(outputs[0].GetTensorTypeAndShape().Shape, x => (int)x);
+            this.output0Shape = new int2(output0Shape[1], output0Shape[2]);
 
-            int maxDetections = options.maxDetections;
-            proposalsArray = new NativeArray<Detection>(maxDetections, Allocator.Persistent);
-            detectionsArray = new NativeArray<Detection>(maxDetections, Allocator.Persistent);
+            const int MAX_PROPOSALS = 500;
+            proposalsArray = new NativeArray<Detection>(MAX_PROPOSALS, Allocator.Persistent);
+            detectionsArray = new NativeArray<Detection>(MAX_PROPOSALS, Allocator.Persistent);
 
             var labels = options.labelFile.text.Split('\n', StringSplitOptions.RemoveEmptyEntries);
             labelNames = Array.AsReadOnly(labels);
             classCount = labelNames.Count;
 
             Assert.IsTrue(classCount <= output0Shape[1] - 4); // 4:xywh
-
-            tOutput0 = new float[outputs[0].GetTensorDataAsSpan<float>().Length];
         }
 
         public override void Dispose()
@@ -98,71 +94,60 @@ namespace Microsoft.ML.OnnxRuntime.Examples
 
         protected override void PostProcess()
         {
-            // https://github.com/ultralytics/ultralytics/blob/aecf1da32b50e144b226f54ae4e979dc3cc62145/examples/YOLOv8-Segmentation-ONNXRuntime-Python/main.py#L109
-
+            // [0: predictions] shape: 1,116,8400 (Batch_size=1, xywh+conf_cls(80)+nm(32), Num_anchors)
             // [1: protos] shape: 1,32,160,160
-
             var output0 = outputs[0].GetTensorDataAsSpan<float>();
-            // Transpose(output0, tOutput0, output0Shape[1], output0Shape[2]);
-
             var proposals = GenerateProposals(output0, options.confidenceThreshold);
+
             if (proposals.Length == 0)
             {
                 detectionCount = 0;
                 return;
             }
             proposals.Sort();
-            // Debug.Log($"Max conf: {proposals[0].probability} min conf: {proposals[^1].probability}");
+            detectionCount = NMS(proposals, detectionsArray, options.nmsThreshold);
         }
 
-        public void SaveOutputToFile(string filePath)
+        /// <summary>
+        ///  Convert CV rect to Viewport space
+        /// </summary>
+        /// <param name="rect">A Normalized Rect, input should be 0 - 1</param>
+        /// <returns></returns>
+        public Rect ConvertToViewport(in Rect rect)
         {
-            var output0 = outputs[0].GetTensorDataAsSpan<float>();
-            // var output0 = tOutput0;
-            var sb = new System.Text.StringBuilder();
-            for (int i = 0; i < output0.Length; i++)
-            {
-                sb.Append($"{output0[i]:F2}");
-                sb.Append(", ");
-                if (i % 116 == 115)
-                // if (i % 8400 == 8399)
-                {
-                    sb.AppendLine();
-                }
-            }
-            File.WriteAllText(filePath, sb.ToString());
+            Rect unityRect = rect.FlipY();
+            var mtx = InputToViewportMatrix;
+            Vector2 min = mtx.MultiplyPoint3x4(unityRect.min);
+            Vector2 max = mtx.MultiplyPoint3x4(unityRect.max);
+            return new Rect(min, max - min);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        static int Idx(int x, int y, int stride)
-        {
-            return x * stride + y;
-        }
-
-        private NativeSlice<Detection> GenerateProposals(
-            in ReadOnlySpan<float> predictions, float confidenceThreshold)
+        // TODO: consider using Burst
+        private NativeSlice<Detection> GenerateProposals(ReadOnlySpan<float> tensor, float confidenceThreshold)
         {
             // [0: predictions] shape: 1,116,8400 (Batch_size=1, xywh+conf_cls(80)+nm(32), Num_anchors)
+            const int RECT_OFFSET = 4;
 
-            int stride = output0Shape[1];
-            int anchorCount = output0Shape[2];
+            int2 shape = output0Shape.yx;
+            int cols = shape.x;
             int classCount = this.classCount;
-            int width = this.width;
-            int height = this.height;
+
+            // reciprocal width and height
+            float rWidth = 1f / width;
+            float rHeight = 1f / height;
 
             int proposalsCount = 0;
 
-            // Y (dim:2)
-            for (int anchorId = 0; anchorId < anchorCount; anchorCount++)
+            // cols ->
+            for (int anchorId = 0; anchorId < cols; anchorId++)
             {
-
                 int classId = int.MinValue;
                 float maxConfidence = float.MinValue;
 
-                // X (dim:1)
+                // rows
                 for (int i = 0; i < classCount; i++)
                 {
-                    float confidence = predictions[Idx(i + 4, anchorId, stride)];
+                    float confidence = tensor.GetValue(anchorId, RECT_OFFSET + i, shape);
                     if (confidence > maxConfidence)
                     {
                         maxConfidence = confidence;
@@ -177,10 +162,10 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                 }
 
                 // Normalize Rect
-                float cx = predictions[Idx(0, anchorId, stride)] / width;
-                float cy = predictions[Idx(1, anchorId, stride)] / height;
-                float w = predictions[Idx(2, anchorId, stride)] / width;
-                float h = predictions[Idx(3, anchorId, stride)] / height;
+                float cx = tensor.GetValue(anchorId, 0, shape) * rWidth;
+                float cy = tensor.GetValue(anchorId, 1, shape) * rHeight;
+                float w = tensor.GetValue(anchorId, 2, shape) * rWidth;
+                float h = tensor.GetValue(anchorId, 3, shape) * rHeight;
                 float x = cx - w * 0.5f;
                 float y = cy - h * 0.5f;
 
@@ -198,15 +183,39 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             return proposalsArray.Slice(0, proposalsCount);
         }
 
-        static void Transpose(ReadOnlySpan<float> input, Span<float> output, int width, int height)
+        private static int NMS(
+           in NativeSlice<Detection> proposals,
+           NativeArray<Detection> detections,
+           float iou_threshold)
         {
-            for (int y = 0; y < height; y++)
+            int detectedCount = 0;
+
+            foreach (Detection a in proposals)
             {
-                for (int x = 0; x < width; x++)
+                bool keep = true;
+                for (int i = 0; i < detectedCount; i++)
                 {
-                    output[x * height + y] = input[y * width + x];
+                    Detection b = detections[i];
+
+                    // Ignore different classes
+                    if (b.label != a.label)
+                    {
+                        continue;
+                    }
+                    float iou = a.rect.IntersectionOverUnion(b.rect);
+                    if (iou > iou_threshold)
+                    {
+                        keep = false;
+                    }
+                }
+                if (keep)
+                {
+                    detections[detectedCount] = a;
+                    detectedCount++;
                 }
             }
+
+            return detectedCount;
         }
     }
 }
