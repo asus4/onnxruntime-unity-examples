@@ -88,7 +88,10 @@ public class Yolo11SegSample : MonoBehaviour
 
         // Get readonly span
         ReadOnlySpan<float> inputSpan = input;
-        SpanExtensions.Transpose(inputSpan, output, new int2(2, 3));
+        var input2D = inputSpan.AsSpan2D(new int2(2, 3));
+        Span<float> outputSpan = output;
+        var output2D = outputSpan.AsSpan2D(new int2(3, 2));
+        input2D.Transpose(output2D);
 
         var sb = new StringBuilder();
         sb.Append("Input: ");

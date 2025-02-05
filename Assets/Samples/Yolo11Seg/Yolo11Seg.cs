@@ -5,10 +5,10 @@ using Microsoft.ML.OnnxRuntime.Unity;
 using Microsoft.ML.OnnxRuntime.UnityEx;
 using UnityEngine;
 using UnityEngine.Assertions;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Mathematics;
 using Unity.Profiling;
-
 
 namespace Microsoft.ML.OnnxRuntime.Examples
 {
@@ -117,11 +117,10 @@ namespace Microsoft.ML.OnnxRuntime.Examples
 
             // Output 0
             {
-                var out0Shape = Array.ConvertAll(outputs[0].GetTensorTypeAndShape().Shape, x => (int)x);
-                Assert.AreEqual(3, out0Shape.Length);
-                this.output0Shape = new int3(out0Shape[0], out0Shape[1], out0Shape[2]);
-
-                output0Buffer = new float[out0Shape.Aggregate((x, y) => x * y)];
+                var info = outputs[0].GetTensorTypeAndShape();
+                Assert.AreEqual(3, info.DimensionsCount);
+                output0Shape = new int3((int)info.Shape[0], (int)info.Shape[1], (int)info.Shape[2]);
+                output0Buffer = new float[info.ElementCount];
 
                 const int MAX_PROPOSALS = 500;
                 proposalsArray = new NativeArray<Detection>(MAX_PROPOSALS, Allocator.Persistent);
@@ -130,13 +129,13 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                 var labels = options.labelFile.text.Split('\n', StringSplitOptions.RemoveEmptyEntries);
                 labelNames = Array.AsReadOnly(labels);
                 classCount = labelNames.Count;
-
-                Assert.IsTrue(classCount <= out0Shape[1] - 4); // 4:xywh
             }
 
+            // Output 1
             {
-                var output1Shape = Array.ConvertAll(outputs[1].GetTensorTypeAndShape().Shape, x => (int)x);
-                int3 shape = new(output1Shape[1], output1Shape[2], output1Shape[3]);
+                var info = outputs[1].GetTensorTypeAndShape();
+                Assert.AreEqual(4, info.DimensionsCount);
+                var shape = new int3((int)info.Shape[1], (int)info.Shape[2], (int)info.Shape[3]);
                 segmentation = new Yolo11SegVisualize(shape, options.visualizeSegmentationShader, Colors);
             }
         }
@@ -194,8 +193,11 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         }
 
         // TODO: consider using Burst
+        [BurstCompile]
         private NativeSlice<Detection> GenerateProposals(ReadOnlySpan<float> tensor, float confidenceThreshold)
         {
+            Assert.AreEqual(1, output0Shape.x, "Support only batch size 1");
+
             // [0: predictions] shape: 1,116,8400 (Batch_size=1, xywh+conf_cls(80)+nm(32), Num_anchors)
             int classCount = this.classCount;
 
@@ -206,7 +208,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             int proposalsCount = 0;
 
 
-            var tensor3D = tensor.AsSpan3D(output0Shape.xyz);
+            var tensor3D = tensor.AsSpan2D(output0Shape.yz);
 
             // TODO: Should transpose first?
             // cols ->
@@ -219,7 +221,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                 for (int i = 0; i < classCount; i++)
                 {
                     const int RECT_OFFSET = 4;
-                    float confidence = tensor3D[0, RECT_OFFSET + i, anchorId];
+                    float confidence = tensor3D[RECT_OFFSET + i, anchorId];
                     if (confidence > maxConfidence)
                     {
                         maxConfidence = confidence;
@@ -234,10 +236,10 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                 }
 
                 // Normalize Rect
-                float cx = tensor3D[0, 0, anchorId] * rWidth;
-                float cy = tensor3D[0, 1, anchorId] * rHeight;
-                float w = tensor3D[0, 2, anchorId] * rWidth;
-                float h = tensor3D[0, 3, anchorId] * rHeight;
+                float cx = tensor3D[0, anchorId] * rWidth;
+                float cy = tensor3D[1, anchorId] * rHeight;
+                float w = tensor3D[2, anchorId] * rWidth;
+                float h = tensor3D[3, anchorId] * rHeight;
                 float x = cx - w * 0.5f;
                 float y = cy - h * 0.5f;
 
