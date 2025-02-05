@@ -2,6 +2,7 @@ using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 using Microsoft.ML.OnnxRuntime.Unity;
+using Microsoft.ML.OnnxRuntime.UnityEx;
 using UnityEngine;
 using UnityEngine.Assertions;
 using Unity.Collections;
@@ -90,7 +91,8 @@ namespace Microsoft.ML.OnnxRuntime.Examples
 
         // [0: predictions] shape: 1,116,8400 (Batch_size=1, xywh_conf_cls_nm, Num_anchors)
         // [1: protos] shape: 1,32,160,160
-        private readonly int2 output0Shape;
+        private readonly int3 output0Shape;
+        private readonly float[] output0Buffer;
         private NativeArray<Detection> proposalsArray;
         private NativeArray<Detection> detectionsArray;
         private int detectionCount = 0;
@@ -110,7 +112,10 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             // Output 0
             {
                 var output0Shape = Array.ConvertAll(outputs[0].GetTensorTypeAndShape().Shape, x => (int)x);
-                this.output0Shape = new int2(output0Shape[1], output0Shape[2]);
+                Assert.AreEqual(3, output0Shape.Length);
+                this.output0Shape = new int3(output0Shape[0], output0Shape[1], output0Shape[2]);
+
+                output0Buffer = new float[output0Shape.Aggregate((x, y) => x * y)];
 
                 const int MAX_PROPOSALS = 500;
                 proposalsArray = new NativeArray<Detection>(MAX_PROPOSALS, Allocator.Persistent);
@@ -183,8 +188,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         {
             // [0: predictions] shape: 1,116,8400 (Batch_size=1, xywh+conf_cls(80)+nm(32), Num_anchors)
 
-            int2 shape = output0Shape.yx;
-            int cols = shape.x;
+            int cols = output0Shape.z;
             int classCount = this.classCount;
 
             // reciprocal width and height
@@ -192,6 +196,9 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             float rHeight = 1f / height;
 
             int proposalsCount = 0;
+
+
+            var tensor3D = tensor.AsSpan3D(output0Shape.xyz);
 
             // TODO: Should transpose first?
             // cols ->
@@ -204,7 +211,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                 for (int i = 0; i < classCount; i++)
                 {
                     const int RECT_OFFSET = 4;
-                    float confidence = tensor.GetValue(anchorId, RECT_OFFSET + i, shape);
+                    float confidence = tensor3D[0, RECT_OFFSET + i, anchorId];
                     if (confidence > maxConfidence)
                     {
                         maxConfidence = confidence;
@@ -219,10 +226,10 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                 }
 
                 // Normalize Rect
-                float cx = tensor.GetValue(anchorId, 0, shape) * rWidth;
-                float cy = tensor.GetValue(anchorId, 1, shape) * rHeight;
-                float w = tensor.GetValue(anchorId, 2, shape) * rWidth;
-                float h = tensor.GetValue(anchorId, 3, shape) * rHeight;
+                float cx = tensor3D[0, 0, anchorId] * rWidth;
+                float cy = tensor3D[0, 1, anchorId] * rHeight;
+                float w = tensor3D[0, 2, anchorId] * rWidth;
+                float h = tensor3D[0, 3, anchorId] * rHeight;
                 float x = cx - w * 0.5f;
                 float y = cy - h * 0.5f;
 

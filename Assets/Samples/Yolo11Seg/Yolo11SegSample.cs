@@ -1,10 +1,12 @@
 using System;
 using System.Text;
 using Microsoft.ML.OnnxRuntime.Unity;
+using Microsoft.ML.OnnxRuntime.UnityEx;
 using Microsoft.ML.OnnxRuntime.Examples;
 using TextureSource;
 using UnityEngine;
 using UnityEngine.UI;
+using Unity.Mathematics;
 
 [RequireComponent(typeof(VirtualTextureSource))]
 public class Yolo11SegSample : MonoBehaviour
@@ -35,6 +37,8 @@ public class Yolo11SegSample : MonoBehaviour
 
     private void Start()
     {
+        TestTranspose();
+
         inference = new Yolo11Seg(model.bytes, options);
 
         detectionBoxes = new TMPro.TMP_Text[maxDetections];
@@ -75,6 +79,23 @@ public class Yolo11SegSample : MonoBehaviour
 
         UpdateDetectionBox(inference.Detections);
         segmentationImage.texture = inference.SegmentationTexture;
+    }
+
+    private void TestTranspose()
+    {
+        var input = new float[] { 1, 2, 3, 4, 5, 6 };
+        var output = new float[6];
+
+        // Get readonly span
+        ReadOnlySpan<float> inputSpan = input;
+        SpanExtensions.Transpose(inputSpan, output, new int2(2, 3));
+
+        var sb = new StringBuilder();
+        sb.Append("Input: ");
+        sb.AppendLine(string.Join(", ", input));
+        sb.Append("Output: ");
+        sb.AppendLine(string.Join(", ", output));
+        Debug.Log(sb.ToString());
     }
 
     private void UpdateDetectionBox(ReadOnlySpan<Yolo11Seg.Detection> detections)
