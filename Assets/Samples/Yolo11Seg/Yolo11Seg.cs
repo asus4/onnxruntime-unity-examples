@@ -7,6 +7,8 @@ using UnityEngine;
 using UnityEngine.Assertions;
 using Unity.Collections;
 using Unity.Mathematics;
+using Unity.Profiling;
+
 
 namespace Microsoft.ML.OnnxRuntime.Examples
 {
@@ -102,6 +104,10 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         public ReadOnlySpan<Detection> Detections => detectionsArray.AsReadOnlySpan()[..detectionCount];
         public Texture SegmentationTexture => segmentation.Texture;
 
+        // Profilers
+        static readonly ProfilerMarker generateProposalsMarker = new($"{typeof(Yolo11Seg).Name}.GenerateProposals");
+        static readonly ProfilerMarker segmentationMarker = new($"{typeof(Yolo11Seg).Name}.Segmentation");
+
         public Yolo11Seg(byte[] model, Options options)
             : base(model, options)
         {
@@ -111,11 +117,11 @@ namespace Microsoft.ML.OnnxRuntime.Examples
 
             // Output 0
             {
-                var output0Shape = Array.ConvertAll(outputs[0].GetTensorTypeAndShape().Shape, x => (int)x);
-                Assert.AreEqual(3, output0Shape.Length);
-                this.output0Shape = new int3(output0Shape[0], output0Shape[1], output0Shape[2]);
+                var out0Shape = Array.ConvertAll(outputs[0].GetTensorTypeAndShape().Shape, x => (int)x);
+                Assert.AreEqual(3, out0Shape.Length);
+                this.output0Shape = new int3(out0Shape[0], out0Shape[1], out0Shape[2]);
 
-                output0Buffer = new float[output0Shape.Aggregate((x, y) => x * y)];
+                output0Buffer = new float[out0Shape.Aggregate((x, y) => x * y)];
 
                 const int MAX_PROPOSALS = 500;
                 proposalsArray = new NativeArray<Detection>(MAX_PROPOSALS, Allocator.Persistent);
@@ -125,7 +131,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                 labelNames = Array.AsReadOnly(labels);
                 classCount = labelNames.Count;
 
-                Assert.IsTrue(classCount <= output0Shape[1] - 4); // 4:xywh
+                Assert.IsTrue(classCount <= out0Shape[1] - 4); // 4:xywh
             }
 
             {
@@ -146,10 +152,12 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         protected override void PostProcess()
         {
 
+            generateProposalsMarker.Begin();
             // 0: Parse predictions
             // [0: predictions] shape: 1,116,8400 (Batch_size=1, xywh+conf_cls(80)+nm(32), Num_anchors)
             var output0 = outputs[0].GetTensorDataAsSpan<float>();
             var proposals = GenerateProposals(output0, options.confidenceThreshold);
+            generateProposalsMarker.End();
 
             if (proposals.Length == 0)
             {
@@ -159,9 +167,11 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             proposals.Sort();
             detectionCount = NMS(proposals, detectionsArray, options.nmsThreshold);
 
+            segmentationMarker.Begin();
             // [1: protos] shape: 1,32,160,160
             var output1 = outputs[1].GetTensorDataAsSpan<float>();
             segmentation.Process(output1);
+            segmentationMarker.End();
         }
 
         /// <summary>
@@ -187,8 +197,6 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         private NativeSlice<Detection> GenerateProposals(ReadOnlySpan<float> tensor, float confidenceThreshold)
         {
             // [0: predictions] shape: 1,116,8400 (Batch_size=1, xywh+conf_cls(80)+nm(32), Num_anchors)
-
-            int cols = output0Shape.z;
             int classCount = this.classCount;
 
             // reciprocal width and height
@@ -202,7 +210,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
 
             // TODO: Should transpose first?
             // cols ->
-            for (int anchorId = 0; anchorId < cols; anchorId++)
+            for (int anchorId = 0; anchorId < output0Shape.z; anchorId++)
             {
                 int classId = int.MinValue;
                 float maxConfidence = float.MinValue;
