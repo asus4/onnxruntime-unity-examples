@@ -4,6 +4,7 @@ using Microsoft.ML.OnnxRuntime.Unity;
 using Microsoft.ML.OnnxRuntime.Examples;
 using TextureSource;
 using UnityEngine;
+using UnityEngine.UI;
 
 [RequireComponent(typeof(VirtualTextureSource))]
 public class Yolo11SegSample : MonoBehaviour
@@ -24,8 +25,12 @@ public class Yolo11SegSample : MonoBehaviour
     [SerializeField]
     private int maxDetections = 20;
 
+    [SerializeField]
+    private RawImage segmentationImage;
+
     private Yolo11Seg inference;
     private TMPro.TMP_Text[] detectionBoxes;
+    private Image[] detectionBoxOutline;
     private readonly StringBuilder sb = new();
 
     private void Start()
@@ -33,12 +38,14 @@ public class Yolo11SegSample : MonoBehaviour
         inference = new Yolo11Seg(model.bytes, options);
 
         detectionBoxes = new TMPro.TMP_Text[maxDetections];
+        detectionBoxOutline = new UnityEngine.UI.Image[maxDetections];
         for (int i = 0; i < maxDetections; i++)
         {
             var box = Instantiate(detectionBoxPrefab, detectionContainer);
             box.name = $"Detection {i}";
             box.gameObject.SetActive(false);
             detectionBoxes[i] = box;
+            detectionBoxOutline[i] = box.transform.GetChild(0).GetComponent<UnityEngine.UI.Image>();
         }
 
         if (TryGetComponent(out VirtualTextureSource source))
@@ -67,6 +74,7 @@ public class Yolo11SegSample : MonoBehaviour
         inference.Run(texture);
 
         UpdateDetectionBox(inference.Detections);
+        segmentationImage.texture = inference.SegmentationTexture;
     }
 
     private void UpdateDetectionBox(ReadOnlySpan<Yolo11Seg.Detection> detections)
@@ -79,18 +87,20 @@ public class Yolo11SegSample : MonoBehaviour
         for (i = 0; i < length; i++)
         {
             var detection = detections[i];
-            string label = labels[detection.label];
+
+            var color = inference.GetColor(detection);
 
             var box = detectionBoxes[i];
             box.gameObject.SetActive(true);
 
             // Using StringBuilder to reduce GC
             sb.Clear();
-            sb.Append(label);
+            sb.Append(labels[detection.label]);
             sb.Append(": ");
             sb.Append((int)(detection.probability * 100));
             sb.Append('%');
             box.SetText(sb);
+            box.color = color;
 
             // The detection rect is model space
             // Needs to be converted to viewport space
@@ -98,7 +108,10 @@ public class Yolo11SegSample : MonoBehaviour
             Rect rect = inference.ConvertToViewport(detection.rect);
             rt.anchoredPosition = rect.min * viewportSize;
             rt.sizeDelta = rect.size * viewportSize;
+
+            detectionBoxOutline[i].color = color;
         }
+
         // Hide unused boxes
         for (; i < maxDetections; i++)
         {

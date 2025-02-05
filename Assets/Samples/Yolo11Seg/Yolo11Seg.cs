@@ -1,6 +1,6 @@
 using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using Microsoft.ML.OnnxRuntime.Unity;
 using UnityEngine;
 using UnityEngine.Assertions;
@@ -16,10 +16,10 @@ namespace Microsoft.ML.OnnxRuntime.Examples
     /// 
     /// https://docs.ultralytics.com/tasks/segment/
     /// 
-    /// Original python code: 
+    /// Ported from python code: 
     /// https://github.com/ultralytics/ultralytics/blob/aecf1da32b50e144b226f54ae4e979dc3cc62145/examples/YOLOv8-Segmentation-ONNXRuntime-Python/main.py
     /// </summary>
-    public class Yolo11Seg : ImageInference<float>
+    public sealed class Yolo11Seg : ImageInference<float>
     {
         [Serializable]
         public class Options : ImageInferenceOptions
@@ -30,6 +30,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             public float confidenceThreshold = 0.25f;
             [Range(0f, 1f)]
             public float nmsThreshold = 0.45f;
+            public ComputeShader visualizeSegmentationShader;
         }
 
         public readonly struct Detection : IComparable<Detection>
@@ -52,6 +53,37 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             }
         }
 
+        public static readonly Color[] Colors = (new uint[]
+        {
+            0x042AFFFF,
+            0x0BDBEBFF,
+            0xF3F3F3FF,
+            0x00DFB7FF,
+            0x111F68FF,
+            0xFF6FDDFF,
+            0xFF444FFF,
+            0xCCED00FF,
+            0x00F344FF,
+            0xBD00FFFF,
+            0x00B4FFFF,
+            0xDD00BAFF,
+            0x00FFFFFF,
+            0x26C000FF,
+            0x01FFB3FF,
+            0x7D24FFFF,
+            0x7B0068FF,
+            0xFF1B6CFF,
+            0xFC6D2FFF,
+            0xA2FF0BFF,
+        })
+        .Select(hex => new Color32(
+            (byte)((hex >> 24) & 0xFF),
+            (byte)((hex >> 16) & 0xFF),
+            (byte)((hex >> 8) & 0xFF),
+            (byte)(hex & 0xFF)))
+        .Select(c => (Color)c)
+        .ToArray();
+
         private readonly Options options;
         public readonly int classCount;
         public readonly ReadOnlyCollection<string> labelNames;
@@ -63,7 +95,10 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         private NativeArray<Detection> detectionsArray;
         private int detectionCount = 0;
 
+        private readonly Yolo11SegVisualize segmentation;
+
         public ReadOnlySpan<Detection> Detections => detectionsArray.AsReadOnlySpan()[..detectionCount];
+        public Texture SegmentationTexture => segmentation.Texture;
 
         public Yolo11Seg(byte[] model, Options options)
             : base(model, options)
@@ -71,18 +106,28 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             this.options = options;
 
             Assert.AreEqual(2, outputs.Count);
-            var output0Shape = Array.ConvertAll(outputs[0].GetTensorTypeAndShape().Shape, x => (int)x);
-            this.output0Shape = new int2(output0Shape[1], output0Shape[2]);
 
-            const int MAX_PROPOSALS = 500;
-            proposalsArray = new NativeArray<Detection>(MAX_PROPOSALS, Allocator.Persistent);
-            detectionsArray = new NativeArray<Detection>(MAX_PROPOSALS, Allocator.Persistent);
+            // Output 0
+            {
+                var output0Shape = Array.ConvertAll(outputs[0].GetTensorTypeAndShape().Shape, x => (int)x);
+                this.output0Shape = new int2(output0Shape[1], output0Shape[2]);
 
-            var labels = options.labelFile.text.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-            labelNames = Array.AsReadOnly(labels);
-            classCount = labelNames.Count;
+                const int MAX_PROPOSALS = 500;
+                proposalsArray = new NativeArray<Detection>(MAX_PROPOSALS, Allocator.Persistent);
+                detectionsArray = new NativeArray<Detection>(MAX_PROPOSALS, Allocator.Persistent);
 
-            Assert.IsTrue(classCount <= output0Shape[1] - 4); // 4:xywh
+                var labels = options.labelFile.text.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+                labelNames = Array.AsReadOnly(labels);
+                classCount = labelNames.Count;
+
+                Assert.IsTrue(classCount <= output0Shape[1] - 4); // 4:xywh
+            }
+
+            {
+                var output1Shape = Array.ConvertAll(outputs[1].GetTensorTypeAndShape().Shape, x => (int)x);
+                int3 shape = new(output1Shape[1], output1Shape[2], output1Shape[3]);
+                segmentation = new Yolo11SegVisualize(shape, options.visualizeSegmentationShader, Colors);
+            }
         }
 
         public override void Dispose()
@@ -90,12 +135,14 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             base.Dispose();
             proposalsArray.Dispose();
             detectionsArray.Dispose();
+            segmentation.Dispose();
         }
 
         protected override void PostProcess()
         {
+
+            // 0: Parse predictions
             // [0: predictions] shape: 1,116,8400 (Batch_size=1, xywh+conf_cls(80)+nm(32), Num_anchors)
-            // [1: protos] shape: 1,32,160,160
             var output0 = outputs[0].GetTensorDataAsSpan<float>();
             var proposals = GenerateProposals(output0, options.confidenceThreshold);
 
@@ -106,6 +153,10 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             }
             proposals.Sort();
             detectionCount = NMS(proposals, detectionsArray, options.nmsThreshold);
+
+            // [1: protos] shape: 1,32,160,160
+            var output1 = outputs[1].GetTensorDataAsSpan<float>();
+            segmentation.Process(output1);
         }
 
         /// <summary>
@@ -122,11 +173,15 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             return new Rect(min, max - min);
         }
 
+        public Color GetColor(in Detection detection)
+        {
+            return Colors[detection.label % Colors.Length];
+        }
+
         // TODO: consider using Burst
         private NativeSlice<Detection> GenerateProposals(ReadOnlySpan<float> tensor, float confidenceThreshold)
         {
             // [0: predictions] shape: 1,116,8400 (Batch_size=1, xywh+conf_cls(80)+nm(32), Num_anchors)
-            const int RECT_OFFSET = 4;
 
             int2 shape = output0Shape.yx;
             int cols = shape.x;
@@ -138,6 +193,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
 
             int proposalsCount = 0;
 
+            // TODO: Should transpose first?
             // cols ->
             for (int anchorId = 0; anchorId < cols; anchorId++)
             {
@@ -147,6 +203,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                 // rows
                 for (int i = 0; i < classCount; i++)
                 {
+                    const int RECT_OFFSET = 4;
                     float confidence = tensor.GetValue(anchorId, RECT_OFFSET + i, shape);
                     if (confidence > maxConfidence)
                     {
