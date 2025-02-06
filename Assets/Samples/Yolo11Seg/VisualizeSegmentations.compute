@@ -1,9 +1,11 @@
 #pragma kernel SegmentationToTexture
 
 // shape: 1,32,160,160
-Buffer<float> _InputBuffer;
+Buffer<float> _SegmentationBuffer;
+Buffer<float> _MaskBuffer;
 Buffer<float4> _ColorTable;
 
+uint _MaskCount;
 uint2 _OutputSize;
 RWTexture2D<float4> _OutputTexture;
 
@@ -22,8 +24,7 @@ void SegmentationToTexture (uint2 id : SV_DispatchThreadID)
     float maxValue = -1.0;
     for (uint i = 0; i < 32; i++)
     {
-        float value = _InputBuffer[IdxNCHW(i, height - id.y, id.x)];
-        // float value = _InputBuffer[IdxNCHW(i, id.y, id.x)];
+        float value = _SegmentationBuffer[IdxNCHW(i, height - id.y, id.x)];
         if(value > maxValue)
         {
             maxIndex = i;

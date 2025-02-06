@@ -112,7 +112,7 @@ public class Yolo11SegSample : MonoBehaviour
         {
             var detection = detections[i];
 
-            var color = inference.GetColor(detection);
+            var color = detection.GetColor();
 
             var box = detectionBoxes[i];
             box.gameObject.SetActive(true);
