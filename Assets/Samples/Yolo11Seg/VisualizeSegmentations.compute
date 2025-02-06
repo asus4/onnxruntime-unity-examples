@@ -1,0 +1,37 @@
+#pragma kernel SegmentationToTexture
+
+// shape: 1,32,160,160
+Buffer<float> _InputBuffer;
+Buffer<float4> _ColorTable;
+
+uint2 _OutputSize;
+RWTexture2D<float4> _OutputTexture;
+
+// Get index of NCHW tensor
+uint IdxNCHW(uint c, uint y, uint x)
+{
+    return c * _OutputSize.x * _OutputSize.y + y * _OutputSize.x + x;
+}
+
+[numthreads(8,8,1)]
+void SegmentationToTexture (uint2 id : SV_DispatchThreadID)
+{
+    uint height = 159;
+
+    int maxIndex = -1;
+    float maxValue = -1.0;
+    for (uint i = 0; i < 32; i++)
+    {
+        float value = _InputBuffer[IdxNCHW(i, height - id.y, id.x)];
+        // float value = _InputBuffer[IdxNCHW(i, id.y, id.x)];
+        if(value > maxValue)
+        {
+            maxIndex = i;
+            maxValue = value;
+        }
+    }
+
+    _OutputTexture[id] = maxValue > 0.9
+        ? _ColorTable[maxIndex]
+        : float4(1.0, 0.0, 0.0, 1.0);
+}

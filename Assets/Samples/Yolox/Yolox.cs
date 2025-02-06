@@ -2,10 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using Microsoft.ML.OnnxRuntime.Unity;
-using UnityEngine;
-using UnityEngine.Assertions;
+using Microsoft.ML.OnnxRuntime.UnityEx;
 using Unity.Collections;
 using Unity.Mathematics;
+using Unity.Profiling;
+using UnityEngine;
+using UnityEngine.Assertions;
 
 
 namespace Microsoft.ML.OnnxRuntime.Examples
@@ -31,19 +33,20 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         {
             [Header("Yolox options")]
             public TextAsset labelFile;
-            [Range(1, 100)]
-            public int maxDetections = 100;
             [Range(0f, 1f)]
             public float probThreshold = 0.3f;
             [Range(0f, 1f)]
             public float nmsThreshold = 0.45f;
         }
 
-        public readonly struct Detection : IComparable<Detection>
+        public readonly struct Detection : IDetection<Detection>
         {
             public readonly int label;
             public readonly Rect rect;
             public readonly float probability;
+
+            public readonly int Label => label;
+            public readonly Rect Rect => rect;
 
             public Detection(Rect rect, int label, float probability)
             {
@@ -54,6 +57,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
 
             public int CompareTo(Detection other)
             {
+                // Descending Order
                 return other.probability.CompareTo(probability);
             }
         }
@@ -97,20 +101,23 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         private readonly Anchor[] anchors;
         private readonly Options options;
 
-        private NativeArray<Detection> proposalsArray;
-        private NativeArray<Detection> detectionsArray;
-        private int detectionCount = 0;
+        private NativeList<Detection> proposalsList;
+        private NativeList<Detection> detectionsList;
 
-        public ReadOnlySpan<Detection> Detections => detectionsArray.AsReadOnlySpan()[..detectionCount];
+        public NativeArray<Detection>.ReadOnly Detections => detectionsList.AsReadOnly();
+
+
+        static readonly ProfilerMarker generateProposalsMarker = new($"{typeof(Yolox).Name}.GenerateProposals");
+
 
         public Yolox(byte[] model, Options options)
             : base(model, options)
         {
             this.options = options;
 
-            int maxDetections = options.maxDetections;
-            proposalsArray = new NativeArray<Detection>(maxDetections, Allocator.Persistent);
-            detectionsArray = new NativeArray<Detection>(maxDetections, Allocator.Persistent);
+            const int maxDetections = 100;
+            proposalsList = new NativeList<Detection>(maxDetections, Allocator.Persistent);
+            detectionsList = new NativeList<Detection>(maxDetections, Allocator.Persistent);
 
             var labels = options.labelFile.text.Split('\n', StringSplitOptions.RemoveEmptyEntries);
             labelNames = Array.AsReadOnly(labels);
@@ -121,16 +128,20 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         public override void Dispose()
         {
             base.Dispose();
-            proposalsArray.Dispose();
-            detectionsArray.Dispose();
+            proposalsList.Dispose();
+            detectionsList.Dispose();
         }
 
         protected override void PostProcess()
         {
-            var output = outputs[0].GetTensorDataAsSpan<float>();
-            var proposals = GenerateProposals(output, options.probThreshold);
-            proposals.Sort();
-            detectionCount = NMS(proposals, detectionsArray, options.nmsThreshold);
+            var output0 = outputs[0].GetTensorDataAsSpan<float>();
+
+            generateProposalsMarker.Begin();
+            GenerateProposals(output0, proposalsList, options.probThreshold);
+            generateProposalsMarker.End();
+
+            proposalsList.Sort();
+            IDetection<Detection>.NMS(proposalsList.AsArray(), detectionsList, options.nmsThreshold);
         }
 
         /// <summary>
@@ -148,15 +159,17 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         }
 
         // TODO: consider using Burst
-        private NativeSlice<Detection> GenerateProposals(
-            in ReadOnlySpan<float> feat_blob, float prob_threshold)
+        private void GenerateProposals(
+            in ReadOnlySpan<float> feat_blob,
+            NativeList<Detection> result,
+             float prob_threshold)
         {
             int num_anchors = anchors.Length;
 
             float widthScale = 1f / width;
             float heightScale = 1f / height;
 
-            int proposalsCount = 0;
+            result.Clear();
 
             for (int anchor_idx = 0; anchor_idx < num_anchors; anchor_idx++)
             {
@@ -195,67 +208,14 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                     if (box_prob > prob_threshold)
                     {
                         // Insert with sorted descent order
-                        proposalsArray[proposalsCount] = new Detection(
+                        result.Add(new Detection(
                             new Rect(x0, y0, w, h),
                             class_idx,
                             box_prob
-                        );
-                        proposalsCount++;
-
-                        if (proposalsCount >= proposalsArray.Length)
-                        {
-                            break;
-                        }
+                        ));
                     }
                 }
-
-                if (proposalsCount >= proposalsArray.Length)
-                {
-                    break;
-                }
             }
-
-            if (proposalsCount == 0)
-            {
-                return proposalsArray.Slice(0, 0);
-            }
-
-            return proposalsArray.Slice(0, Math.Min(proposalsCount, proposalsArray.Length));
-        }
-
-        private static int NMS(
-            in NativeSlice<Detection> proposals,
-            NativeArray<Detection> detections,
-            float iou_threshold)
-        {
-            int detectedCount = 0;
-
-            foreach (Detection a in proposals)
-            {
-                bool keep = true;
-                for (int i = 0; i < detectedCount; i++)
-                {
-                    Detection b = detections[i];
-
-                    // Ignore different classes
-                    if (b.label != a.label)
-                    {
-                        continue;
-                    }
-                    float iou = a.rect.IntersectionOverUnion(b.rect);
-                    if (iou > iou_threshold)
-                    {
-                        keep = false;
-                    }
-                }
-                if (keep)
-                {
-                    detections[detectedCount] = a;
-                    detectedCount++;
-                }
-            }
-
-            return detectedCount;
         }
     }
 }
