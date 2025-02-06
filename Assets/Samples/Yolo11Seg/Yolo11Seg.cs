@@ -3,12 +3,11 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using Microsoft.ML.OnnxRuntime.Unity;
 using Microsoft.ML.OnnxRuntime.UnityEx;
-using UnityEngine;
-using UnityEngine.Assertions;
-using Unity.Burst;
 using Unity.Collections;
 using Unity.Mathematics;
 using Unity.Profiling;
+using UnityEngine;
+using UnityEngine.Assertions;
 
 namespace Microsoft.ML.OnnxRuntime.Examples
 {
@@ -95,13 +94,12 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         // [1: protos] shape: 1,32,160,160
         private readonly int3 output0Shape;
         private readonly float[] output0Buffer;
-        private NativeArray<Detection> proposalsArray;
-        private NativeArray<Detection> detectionsArray;
-        private int detectionCount = 0;
+        private NativeList<Detection> proposalList;
+        private NativeList<Detection> detectionList;
 
         private readonly Yolo11SegVisualize segmentation;
 
-        public ReadOnlySpan<Detection> Detections => detectionsArray.AsReadOnlySpan()[..detectionCount];
+        public NativeArray<Detection>.ReadOnly Detections => detectionList.AsReadOnly();
         public Texture SegmentationTexture => segmentation.Texture;
 
         // Profilers
@@ -122,9 +120,9 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                 output0Shape = new int3((int)info.Shape[0], (int)info.Shape[1], (int)info.Shape[2]);
                 output0Buffer = new float[info.ElementCount];
 
-                const int MAX_PROPOSALS = 500;
-                proposalsArray = new NativeArray<Detection>(MAX_PROPOSALS, Allocator.Persistent);
-                detectionsArray = new NativeArray<Detection>(MAX_PROPOSALS, Allocator.Persistent);
+                const int MAX_PROPOSALS = 100;
+                proposalList = new NativeList<Detection>(MAX_PROPOSALS, Allocator.Persistent);
+                detectionList = new NativeList<Detection>(MAX_PROPOSALS, Allocator.Persistent);
 
                 var labels = options.labelFile.text.Split('\n', StringSplitOptions.RemoveEmptyEntries);
                 labelNames = Array.AsReadOnly(labels);
@@ -143,28 +141,26 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         public override void Dispose()
         {
             base.Dispose();
-            proposalsArray.Dispose();
-            detectionsArray.Dispose();
+            proposalList.Dispose();
+            detectionList.Dispose();
             segmentation.Dispose();
         }
 
         protected override void PostProcess()
         {
+            var output0 = outputs[0].GetTensorDataAsSpan<float>();
 
-            generateProposalsMarker.Begin();
             // 0: Parse predictions
             // [0: predictions] shape: 1,116,8400 (Batch_size=1, xywh+conf_cls(80)+nm(32), Num_anchors)
-            var output0 = outputs[0].GetTensorDataAsSpan<float>();
+            generateProposalsMarker.Begin();
             var proposals = GenerateProposals(output0, options.confidenceThreshold);
             generateProposalsMarker.End();
 
             if (proposals.Length == 0)
             {
-                detectionCount = 0;
                 return;
             }
-            proposals.Sort();
-            detectionCount = NMS(proposals, detectionsArray, options.nmsThreshold);
+            NMS(proposals.AsArray(), detectionList, options.nmsThreshold);
 
             segmentationMarker.Begin();
             // [1: protos] shape: 1,32,160,160
@@ -192,42 +188,33 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             return Colors[detection.label % Colors.Length];
         }
 
-        // TODO: consider using Burst
-        [BurstCompile]
-        private NativeSlice<Detection> GenerateProposals(ReadOnlySpan<float> tensor, float confidenceThreshold)
+        private NativeList<Detection> GenerateProposals(ReadOnlySpan<float> tensor, float confidenceThreshold)
         {
+            proposalList.Clear();
+
             Assert.AreEqual(1, output0Shape.x, "Support only batch size 1");
 
-            // [0: predictions] shape: 1,116,8400 (Batch_size=1, xywh+conf_cls(80)+nm(32), Num_anchors)
             int classCount = this.classCount;
 
             // reciprocal width and height
             float rWidth = 1f / width;
             float rHeight = 1f / height;
 
-            int proposalsCount = 0;
+            // shape: 116,8400 (xywh+conf_cls(80)+nm(32), Num_anchors)
+            var tensor2D = tensor.AsSpan2D(output0Shape.yz);
 
+            // shape: 8400,116 (Num_anchors, xywh+conf_cls(80)+nm(32))
+            var tensorTransposed = new Span2D<float>(output0Buffer, output0Shape.zy);
+            tensor2D.Transpose(tensorTransposed);
 
-            var tensor3D = tensor.AsSpan2D(output0Shape.yz);
-
-            // TODO: Should transpose first?
-            // cols ->
             for (int anchorId = 0; anchorId < output0Shape.z; anchorId++)
             {
-                int classId = int.MinValue;
-                float maxConfidence = float.MinValue;
+                ReadOnlySpan<float> anchor = tensorTransposed[anchorId];
 
-                // rows
-                for (int i = 0; i < classCount; i++)
-                {
-                    const int RECT_OFFSET = 4;
-                    float confidence = tensor3D[RECT_OFFSET + i, anchorId];
-                    if (confidence > maxConfidence)
-                    {
-                        maxConfidence = confidence;
-                        classId = i;
-                    }
-                }
+                // Find max confidence
+                var confidences = anchor.Slice(4, classCount);
+                int classId = confidences.ArgMax();
+                float maxConfidence = confidences[classId];
 
                 // Filter out low confidence anchors
                 if (maxConfidence < confidenceThreshold)
@@ -236,41 +223,36 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                 }
 
                 // Normalize Rect
-                float cx = tensor3D[0, anchorId] * rWidth;
-                float cy = tensor3D[1, anchorId] * rHeight;
-                float w = tensor3D[2, anchorId] * rWidth;
-                float h = tensor3D[3, anchorId] * rHeight;
+                float cx = anchor[0] * rWidth;
+                float cy = anchor[1] * rHeight;
+                float w = anchor[2] * rWidth;
+                float h = anchor[3] * rHeight;
                 float x = cx - w * 0.5f;
                 float y = cy - h * 0.5f;
 
-                proposalsArray[proposalsCount++] = new Detection(
+                proposalList.Add(new Detection(
                     new Rect(x, y, w, h),
                     classId,
-                    maxConfidence);
-
-                if (proposalsCount >= proposalsArray.Length)
-                {
-                    break;
-                }
+                    maxConfidence)
+                );
             }
-
-            return proposalsArray.Slice(0, proposalsCount);
+            return proposalList;
         }
 
-        private static int NMS(
-           in NativeSlice<Detection> proposals,
-           NativeArray<Detection> detections,
-           float iou_threshold)
+        private static void NMS(
+            NativeSlice<Detection> proposals,
+            NativeList<Detection> result,
+            float iou_threshold)
         {
-            int detectedCount = 0;
+            result.Clear();
+
+            proposals.Sort();
 
             foreach (Detection a in proposals)
             {
                 bool keep = true;
-                for (int i = 0; i < detectedCount; i++)
+                foreach (Detection b in result)
                 {
-                    Detection b = detections[i];
-
                     // Ignore different classes
                     if (b.label != a.label)
                     {
@@ -282,14 +264,12 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                         keep = false;
                     }
                 }
+
                 if (keep)
                 {
-                    detections[detectedCount] = a;
-                    detectedCount++;
+                    result.Add(a);
                 }
             }
-
-            return detectedCount;
         }
     }
 }

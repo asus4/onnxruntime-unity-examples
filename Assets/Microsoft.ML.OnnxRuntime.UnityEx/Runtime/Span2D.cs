@@ -37,9 +37,10 @@ namespace Microsoft.ML.OnnxRuntime.UnityEx
 
         public static implicit operator ReadOnlySpan2D<T>(Span2D<T> span) => new(span.span, span.shape);
 
-        public unsafe void Transpose(Span2D<T> output)
+        public void Transpose(Span2D<T> output)
         {
-            BurstMethods.Transpose(span, output.span, shape.y, shape.x);
+            ReadOnlySpan<T> readOnlySpan = span;
+            readOnlySpan.Transpose(output.span, shape.y, shape.x);
         }
     }
 
@@ -73,7 +74,7 @@ namespace Microsoft.ML.OnnxRuntime.UnityEx
 
         public unsafe void Transpose(Span2D<T> output)
         {
-            BurstMethods.Transpose(span, output.span, shape.y, shape.x);
+            span.Transpose(output.span, shape.y, shape.x);
         }
     }
 }
