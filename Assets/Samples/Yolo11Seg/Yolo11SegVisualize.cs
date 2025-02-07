@@ -22,10 +22,9 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         private readonly int kernel;
         private readonly ComputeShader compute;
         private readonly GraphicsBuffer segmentationBuffer;
+        private readonly GraphicsBuffer detectionBuffer;
         private readonly NativeArray<float> maskData;
         private readonly GraphicsBuffer maskBuffer;
-        private readonly NativeArray<int> maskLabelData;
-        private readonly GraphicsBuffer maskLabelBuffer;
         private readonly GraphicsBuffer colorTableBuffer;
         private readonly RenderTexture texture;
 
@@ -50,11 +49,10 @@ namespace Microsoft.ML.OnnxRuntime.Examples
 
             // Mask Buffer
             {
+                detectionBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, maxCount, UnsafeUtility.SizeOf<Yolo11Seg.Detection>());
+
                 maskData = new NativeArray<float>(maxCount * 32, Allocator.Persistent);
                 maskBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, maxCount, sizeof(float) * 32);
-
-                maskLabelData = new NativeArray<int>(maxCount, Allocator.Persistent);
-                maskLabelBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, maxCount, sizeof(int));
             }
 
             // Fill Color Table
@@ -79,8 +77,8 @@ namespace Microsoft.ML.OnnxRuntime.Examples
 
             kernel = compute.FindKernel("SegmentationToTexture");
             compute.SetBuffer(kernel, "_SegmentationBuffer", segmentationBuffer);
+            compute.SetBuffer(kernel, "_DetectionBuffer", detectionBuffer);
             compute.SetBuffer(kernel, "_MaskBuffer", maskBuffer);
-            compute.SetBuffer(kernel, "_MaskLabelBuffer", maskLabelBuffer);
             compute.SetBuffer(kernel, "_ColorTable", colorTableBuffer);
             compute.SetTexture(kernel, "_OutputTexture", texture);
             compute.SetInts("_OutputSize", new int[] { width, height });
@@ -92,8 +90,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             segmentationBuffer.Release();
             maskData.Dispose();
             maskBuffer.Release();
-            maskLabelData.Dispose();
-            maskLabelBuffer.Release();
+            detectionBuffer.Release();
             colorTableBuffer.Release();
             texture.Release();
             UnityEngine.Object.Destroy(texture);
@@ -105,32 +102,31 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             ReadOnlySpan<float> output1,
             NativeArray<Yolo11Seg.Detection>.ReadOnly detections)
         {
-            segmentationBuffer.SetData(output1);
+            const int MASK_SIZE = 32;
+            int count = Math.Min(maskBuffer.count, detections.Length);
+            var detectionSpan = detections.AsReadOnlySpan()[..count];
 
-            // Prepare mask buffer
+            // Prepare mask data
             {
                 var output0Span = output0Transposed.AsReadOnlySpan();
                 var output0Tensor = output0Span.AsSpan2D(new int2(8400, 116));
-                int count = Math.Min(maskBuffer.count, detections.Length);
-                var detectionSpan = detections.AsReadOnlySpan()[..count];
                 var maskSpan = maskData.AsSpan();
-                var maskLabelSpan = maskLabelData.AsSpan();
-                const int MASK_SIZE = 32;
 
-                // Copy each detection's mask to buffer
+                // Copy each detection mask
                 for (int i = 0; i < detectionSpan.Length; i++)
                 {
                     var detection = detectionSpan[i];
+                    // Mask: 32 from the end
                     var mask = output0Tensor[detection.anchorId][^MASK_SIZE..];
-
                     mask.CopyTo(maskSpan.Slice(i * MASK_SIZE, MASK_SIZE));
-                    maskLabelSpan[i] = detection.label;
                 }
-                maskBuffer.SetData(maskData, 0, 0, count * MASK_SIZE);
-                maskLabelBuffer.SetData(maskLabelData, 0, 0, count);
-                compute.SetInt(_DetectionCount, count);
             }
 
+            // Set data to buffer
+            segmentationBuffer.SetData(output1);
+            maskBuffer.SetData(maskData, 0, 0, count * MASK_SIZE);
+            detectionBuffer.SetData(detectionSpan);
+            compute.SetInt(_DetectionCount, count);
             compute.SetFloat(_MaskThreshold, options.maskThreshold);
 
             // Run compute shader

@@ -1,16 +1,25 @@
 #pragma kernel SegmentationToTexture
 
+// Must be same with Yolo11Seg.Detection
+struct Detection
+{
+    float4 rect;
+    int label;
+    float probability;
+    int anchorId;
+};
+
 // Raw segmentation output1 from Yolo11
 // shape: 1,32,160,160
 Buffer<float> _SegmentationBuffer;
+
+// Detections
+StructuredBuffer<Detection> _DetectionBuffer;
 
 // 32 mask for detection converted from output0
 // shape: _DetectionCount, 32
 Buffer<float> _MaskBuffer;
 
-// Label of each mask
-// shape: _DetectionCount, 1
-Buffer<int> _MaskLabelBuffer;
 
 // shape: CLASS_COUNT(80), Color
 Buffer<float4> _ColorTable;
@@ -32,12 +41,30 @@ uint IdxNCHW(uint c, uint y, uint x)
 void SegmentationToTexture (uint2 id : SV_DispatchThreadID)
 {
     uint height = _OutputSize.y - 1;
+    float2 uv = (float2(id.x, height - id.y) + 0.5) / _OutputSize;
+
+    // Skip outside of the image
+    if(any(uv < 0.0) || any(uv > 1.0))
+    {
+        _OutputTexture[id] = float4(0.0, 0.0, 0.0, 0.0);
+        return;
+    }
 
     int maxIndex = -1;
     float maxValue = -1.0;
 
     for(uint detectionId = 0; detectionId < _DetectionCount; detectionId++)
     {
+        Detection detection = _DetectionBuffer[detectionId];
+        // Skip outside of the detection rect
+        float2 rectMin = detection.rect.xy;
+        float2 rectMax = rectMin + detection.rect.zw;
+        if(any(uv < rectMin) || any(uv > rectMax))
+        {
+            continue;
+        }
+
+        // Calculate mask value
         float sum = 0;
         for (uint maskId = 0; maskId < MASK_SIZE; maskId++)
         {
@@ -52,7 +79,7 @@ void SegmentationToTexture (uint2 id : SV_DispatchThreadID)
         }
     }
 
-    int colorId = _MaskLabelBuffer[maxIndex];
+    int colorId = _DetectionBuffer[maxIndex].label;
     _OutputTexture[id] = maxValue > _MaskThreshold
         ? _ColorTable[colorId]
         : float4(0.0, 0.0, 0.0, 0.0);

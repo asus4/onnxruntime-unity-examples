@@ -45,18 +45,18 @@ namespace Microsoft.ML.OnnxRuntime.Examples
 
         public readonly struct Detection : IDetection<Detection>
         {
-            public readonly int label;
             public readonly Rect rect;
+            public readonly int label;
             public readonly float probability;
             public readonly int anchorId;
 
             public readonly int Label => label;
             public readonly Rect Rect => rect;
 
-            public Detection(int label, Rect rect, float probability, int anchorId)
+            public Detection(Rect rect, int label, float probability, int anchorId)
             {
-                this.label = label;
                 this.rect = rect;
+                this.label = label;
                 this.probability = probability;
                 this.anchorId = anchorId;
             }
@@ -229,7 +229,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                 confidenceThreshold = confidenceThreshold,
                 // reciprocal width and height
                 sizeScale = new float2(1f / width, 1f / height),
-                output0Shape = output0Shape,
+                anchorStride = output0Shape.y,
                 proposals = proposalsWriter,
             }.Schedule(output0Shape.z, 64).Complete();
         }
@@ -243,14 +243,16 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             public int classCount;
             public float confidenceThreshold;
             public float2 sizeScale;
-            public int3 output0Shape;
+            public int anchorStride;
+
+            [WriteOnly]
             public NativeList<Detection>.ParallelWriter proposals;
 
             public void Execute(int anchorId)
             {
                 var anchor = output0Transposed
                     .AsReadOnlySpan()
-                    .Slice(anchorId * output0Shape.y, output0Shape.y);
+                    .Slice(anchorId * anchorStride, anchorStride);
 
                 // Find max confidence
                 var confidences = anchor.Slice(4, classCount);
@@ -272,8 +274,8 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                 float y = cy - h * 0.5f;
 
                 proposals.AddNoResize(new Detection(
+                     new Rect(x, y, w, h),
                     classId,
-                    new Rect(x, y, w, h),
                     maxConfidence,
                     anchorId)
                 );
