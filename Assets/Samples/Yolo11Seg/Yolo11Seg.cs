@@ -3,7 +3,9 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using Microsoft.ML.OnnxRuntime.Unity;
 using Microsoft.ML.OnnxRuntime.UnityEx;
+using Unity.Burst;
 using Unity.Collections;
+using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Profiling;
 using UnityEngine;
@@ -32,26 +34,42 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             public float confidenceThreshold = 0.25f;
             [Range(0f, 1f)]
             public float nmsThreshold = 0.45f;
+
+            [Header("Segmentation options")]
             public ComputeShader visualizeSegmentationShader;
+            [Range(5, 50)]
+            public int maxDetectionCount = 50;
+            [Range(0f, 3f)]
+            public float maskThreshold = 0.7f;
         }
 
-        public readonly struct Detection : IComparable<Detection>
+        public readonly struct Detection : IDetection<Detection>
         {
-            public readonly int label;
             public readonly Rect rect;
+            public readonly int label;
             public readonly float probability;
+            public readonly int anchorId;
 
-            public Detection(Rect rect, int label, float probability)
+            public readonly int Label => label;
+            public readonly Rect Rect => rect;
+
+            public Detection(Rect rect, int label, float probability, int anchorId)
             {
                 this.rect = rect;
                 this.label = label;
                 this.probability = probability;
+                this.anchorId = anchorId;
             }
 
             public int CompareTo(Detection other)
             {
                 // Descending sort
                 return other.probability.CompareTo(probability);
+            }
+
+            public Color GetColor()
+            {
+                return Colors[label % Colors.Length];
             }
         }
 
@@ -93,7 +111,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         // [0: predictions] shape: 1,116,8400 (Batch_size=1, xywh_conf_cls_nm, Num_anchors)
         // [1: protos] shape: 1,32,160,160
         private readonly int3 output0Shape;
-        private readonly float[] output0Buffer;
+        private readonly NativeArray<float> output0Transposed; // 1, 8400, 116
         private NativeList<Detection> proposalList;
         private NativeList<Detection> detectionList;
 
@@ -118,11 +136,11 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                 var info = outputs[0].GetTensorTypeAndShape();
                 Assert.AreEqual(3, info.DimensionsCount);
                 output0Shape = new int3((int)info.Shape[0], (int)info.Shape[1], (int)info.Shape[2]);
-                output0Buffer = new float[info.ElementCount];
+                output0Transposed = new NativeArray<float>((int)info.ElementCount, Allocator.Persistent);
 
-                const int MAX_PROPOSALS = 100;
-                proposalList = new NativeList<Detection>(MAX_PROPOSALS, Allocator.Persistent);
-                detectionList = new NativeList<Detection>(MAX_PROPOSALS, Allocator.Persistent);
+                Assert.AreEqual(8400, output0Shape.z, "Support only 8400 anchors");
+                proposalList = new NativeList<Detection>(output0Shape.z, Allocator.Persistent);
+                detectionList = new NativeList<Detection>(options.maxDetectionCount, Allocator.Persistent);
 
                 var labels = options.labelFile.text.Split('\n', StringSplitOptions.RemoveEmptyEntries);
                 labelNames = Array.AsReadOnly(labels);
@@ -134,7 +152,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                 var info = outputs[1].GetTensorTypeAndShape();
                 Assert.AreEqual(4, info.DimensionsCount);
                 var shape = new int3((int)info.Shape[1], (int)info.Shape[2], (int)info.Shape[3]);
-                segmentation = new Yolo11SegVisualize(shape, options.visualizeSegmentationShader, Colors);
+                segmentation = new Yolo11SegVisualize(shape, Colors, options);
             }
         }
 
@@ -144,6 +162,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             proposalList.Dispose();
             detectionList.Dispose();
             segmentation.Dispose();
+            output0Transposed.Dispose();
         }
 
         protected override void PostProcess()
@@ -153,19 +172,23 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             // 0: Parse predictions
             // [0: predictions] shape: 1,116,8400 (Batch_size=1, xywh+conf_cls(80)+nm(32), Num_anchors)
             generateProposalsMarker.Begin();
-            var proposals = GenerateProposals(output0, options.confidenceThreshold);
+            GenerateProposals(output0, proposalList, options.confidenceThreshold);
             generateProposalsMarker.End();
 
-            if (proposals.Length == 0)
+            if (proposalList.Length == 0)
             {
+                detectionList.Clear();
                 return;
             }
-            NMS(proposals.AsArray(), detectionList, options.nmsThreshold);
+
+            // Run Non-Maximum Suppression
+            proposalList.Sort();
+            IDetection<Detection>.NMS(proposalList.AsArray(), detectionList, options.nmsThreshold);
 
             segmentationMarker.Begin();
             // [1: protos] shape: 1,32,160,160
             var output1 = outputs[1].GetTensorDataAsSpan<float>();
-            segmentation.Process(output1);
+            segmentation.Process(output0Transposed, output1, Detections);
             segmentationMarker.End();
         }
 
@@ -183,33 +206,53 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             return new Rect(min, max - min);
         }
 
-        public Color GetColor(in Detection detection)
-        {
-            return Colors[detection.label % Colors.Length];
-        }
 
-        private NativeList<Detection> GenerateProposals(ReadOnlySpan<float> tensor, float confidenceThreshold)
+        private void GenerateProposals(ReadOnlySpan<float> tensor, NativeList<Detection> proposals, float confidenceThreshold)
         {
-            proposalList.Clear();
+            proposals.Clear();
 
             Assert.AreEqual(1, output0Shape.x, "Support only batch size 1");
-
-            int classCount = this.classCount;
-
-            // reciprocal width and height
-            float rWidth = 1f / width;
-            float rHeight = 1f / height;
 
             // shape: 116,8400 (xywh+conf_cls(80)+nm(32), Num_anchors)
             var tensor2D = tensor.AsSpan2D(output0Shape.yz);
 
             // shape: 8400,116 (Num_anchors, xywh+conf_cls(80)+nm(32))
-            var tensorTransposed = new Span2D<float>(output0Buffer, output0Shape.zy);
-            tensor2D.Transpose(tensorTransposed);
+            var tensorTransposed = new Span2D<float>(output0Transposed, output0Shape.zy);
+            tensor2D.TransposeJob(tensorTransposed).Complete();
 
-            for (int anchorId = 0; anchorId < output0Shape.z; anchorId++)
+            // Then generate proposals
+            var proposalsWriter = proposals.AsParallelWriter();
+            new GenerateProposalsJob
             {
-                ReadOnlySpan<float> anchor = tensorTransposed[anchorId];
+                output0Transposed = output0Transposed,
+                classCount = classCount,
+                confidenceThreshold = confidenceThreshold,
+                // reciprocal width and height
+                sizeScale = new float2(1f / width, 1f / height),
+                anchorStride = output0Shape.y,
+                proposals = proposalsWriter,
+            }.Schedule(output0Shape.z, 64).Complete();
+        }
+
+        [BurstCompile]
+        private struct GenerateProposalsJob : IJobParallelFor
+        {
+            // shape: 8400,116 (Num_anchors, xywh+conf_cls(80)+nm(32))
+            [ReadOnly]
+            public NativeArray<float> output0Transposed;
+            public int classCount;
+            public float confidenceThreshold;
+            public float2 sizeScale;
+            public int anchorStride;
+
+            [WriteOnly]
+            public NativeList<Detection>.ParallelWriter proposals;
+
+            public void Execute(int anchorId)
+            {
+                var anchor = output0Transposed
+                    .AsReadOnlySpan()
+                    .Slice(anchorId * anchorStride, anchorStride);
 
                 // Find max confidence
                 var confidences = anchor.Slice(4, classCount);
@@ -219,56 +262,23 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                 // Filter out low confidence anchors
                 if (maxConfidence < confidenceThreshold)
                 {
-                    continue;
+                    return;
                 }
 
                 // Normalize Rect
-                float cx = anchor[0] * rWidth;
-                float cy = anchor[1] * rHeight;
-                float w = anchor[2] * rWidth;
-                float h = anchor[3] * rHeight;
+                float cx = anchor[0] * sizeScale.x;
+                float cy = anchor[1] * sizeScale.y;
+                float w = anchor[2] * sizeScale.x;
+                float h = anchor[3] * sizeScale.y;
                 float x = cx - w * 0.5f;
                 float y = cy - h * 0.5f;
 
-                proposalList.Add(new Detection(
-                    new Rect(x, y, w, h),
+                proposals.AddNoResize(new Detection(
+                     new Rect(x, y, w, h),
                     classId,
-                    maxConfidence)
+                    maxConfidence,
+                    anchorId)
                 );
-            }
-            return proposalList;
-        }
-
-        private static void NMS(
-            NativeSlice<Detection> proposals,
-            NativeList<Detection> result,
-            float iou_threshold)
-        {
-            result.Clear();
-
-            proposals.Sort();
-
-            foreach (Detection a in proposals)
-            {
-                bool keep = true;
-                foreach (Detection b in result)
-                {
-                    // Ignore different classes
-                    if (b.label != a.label)
-                    {
-                        continue;
-                    }
-                    float iou = a.rect.IntersectionOverUnion(b.rect);
-                    if (iou > iou_threshold)
-                    {
-                        keep = false;
-                    }
-                }
-
-                if (keep)
-                {
-                    result.Add(a);
-                }
             }
         }
     }

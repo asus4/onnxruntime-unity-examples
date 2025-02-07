@@ -11,7 +11,7 @@ namespace Microsoft.ML.OnnxRuntime.UnityEx
     [BurstCompile]
     public static class BurstMethods
     {
-        public static unsafe void Transpose<T>(this ReadOnlySpan<T> input, Span<T> output, int outW, int outH)
+        public static unsafe JobHandle TransposeJob<T>(this ReadOnlySpan<T> input, Span<T> output, int outW, int outH)
             where T : unmanaged
         {
             Assert.AreEqual(outW * outH, input.Length);
@@ -21,14 +21,14 @@ namespace Microsoft.ML.OnnxRuntime.UnityEx
             fixed (T* outputPtr = output)
             {
                 // Transpose<T>(inputPtr, outputPtr, outW, outH);
-                var job = new TransposeJob<T>
+                var job = new TransposeJobCore<T>
                 {
                     input = inputPtr,
                     output = outputPtr,
                     outW = outW,
                     outH = outH
                 };
-                job.Schedule(input.Length, 32).Complete();
+                return job.Schedule(input.Length, 64);
             }
         }
 
@@ -45,8 +45,8 @@ namespace Microsoft.ML.OnnxRuntime.UnityEx
             }
         }
 
-        [BurstCompile(CompileSynchronously = true)]
-        unsafe struct TransposeJob<T> : IJobParallelFor
+        [BurstCompile]
+        unsafe struct TransposeJobCore<T> : IJobParallelFor
             where T : unmanaged
         {
             [ReadOnly]
