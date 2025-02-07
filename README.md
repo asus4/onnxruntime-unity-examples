@@ -4,13 +4,17 @@
 
 Examples of [ONNX Runtime Unity Plugin](https://github.com/asus4/onnxruntime-unity).
 
-Yolox-Nano  
+**Yolox-Nano** 
 
 <https://github.com/asus4/onnxruntime-unity-examples/assets/357497/96ed9913-41b7-401d-a634-f0e2de4fc3c7>
 
-NanoSAM  
+**NanoSAM**  
 
 <https://github.com/asus4/onnxruntime-unity-examples/assets/357497/5e2b8712-87cc-4a3a-82b7-f217087a0ed1>
+
+**Yolo11 Seg**
+
+<https://github.com/user-attachments/assets/93c3dccd-569c-4a93-826b-0c9b5b60ebe9>
 
 ## Tested environment
 
@@ -28,11 +32,12 @@ NanoSAM
 
 ONNX examples are available in the `Assets/Examples` folder. Pull the repository and open the project in Unity.
 
-Following demos are available:
+The following demos are available:
 
 - [MobileOne](https://github.com/apple/ml-mobileone): Image classification
 - [Yolox](https://github.com/Megvii-BaseDetection/YOLOX): Object detection
 - [NanoSAM](https://github.com/NVIDIA-AI-IOT/nanosam/): Object Segmentation
+- [Yolo11-Seg](https://github.com/ultralytics/ultralytics/tree/main/examples/YOLOv8-Segmentation-ONNXRuntime-Python): Object detection and segmentation
 
 ### Install pre-built ONNX Runtime via Unity Package Manager (UPM)
 
