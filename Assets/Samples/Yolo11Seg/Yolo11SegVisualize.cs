@@ -1,4 +1,5 @@
 using System;
+using Microsoft.ML.OnnxRuntime.Unity;
 using Microsoft.ML.OnnxRuntime.UnityEx;
 using UnityEngine;
 using Unity.Collections;

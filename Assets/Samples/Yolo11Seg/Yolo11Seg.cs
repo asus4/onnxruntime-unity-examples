@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using Microsoft.ML.OnnxRuntime.Unity;
@@ -39,8 +40,8 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             public ComputeShader visualizeSegmentationShader;
             [Range(5, 50)]
             public int maxDetectionCount = 50;
-            [Range(0f, 3f)]
-            public float maskThreshold = 0.7f;
+            [Range(0f, 1f)]
+            public float maskThreshold = 0.5f;
         }
 
         public readonly struct Detection : IDetection<Detection>
@@ -108,14 +109,14 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         public readonly int classCount;
         public readonly ReadOnlyCollection<string> labelNames;
 
-        // [0: predictions] shape: 1,116,8400 (Batch_size=1, xywh_conf_cls_nm, Num_anchors)
-        // [1: protos] shape: 1,32,160,160
-        private readonly int3 output0Shape;
-        private readonly NativeArray<float> output0Transposed; // 1, 8400, 116
+        // [0: predictions] shape: 1,116,8400 (Batch_size=1, XyWh_conf_cls_nm, Num_anchors)
+        // [1: proto] shape: 1,32,160,160
+        private int3 output0Shape;
+        private NativeArray<float> output0Transposed; // 1, 8400, 116
         private NativeList<Detection> proposalList;
         private NativeList<Detection> detectionList;
 
-        private readonly Yolo11SegVisualize segmentation;
+        private Yolo11SegVisualize segmentation;
 
         public NativeArray<Detection>.ReadOnly Detections => detectionList.AsReadOnly();
         public Texture SegmentationTexture => segmentation.Texture;
@@ -131,46 +132,31 @@ namespace Microsoft.ML.OnnxRuntime.Examples
 
             Assert.AreEqual(2, outputs.Count);
 
-            // Output 0
-            {
-                var info = outputs[0].GetTensorTypeAndShape();
-                Assert.AreEqual(3, info.DimensionsCount);
-                output0Shape = new int3((int)info.Shape[0], (int)info.Shape[1], (int)info.Shape[2]);
-                output0Transposed = new NativeArray<float>((int)info.ElementCount, Allocator.Persistent);
+            EnsurePostProcessResources(outputs);
 
-                Assert.AreEqual(8400, output0Shape.z, "Support only 8400 anchors");
-                proposalList = new NativeList<Detection>(output0Shape.z, Allocator.Persistent);
-                detectionList = new NativeList<Detection>(options.maxDetectionCount, Allocator.Persistent);
-
-                var labels = options.labelFile.text.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-                labelNames = Array.AsReadOnly(labels);
-                classCount = labelNames.Count;
-            }
-
-            // Output 1
-            {
-                var info = outputs[1].GetTensorTypeAndShape();
-                Assert.AreEqual(4, info.DimensionsCount);
-                var shape = new int3((int)info.Shape[1], (int)info.Shape[2], (int)info.Shape[3]);
-                segmentation = new Yolo11SegVisualize(shape, Colors, options);
-            }
+            var labels = options.labelFile.text.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            labelNames = Array.AsReadOnly(labels);
+            classCount = labelNames.Count;
         }
 
-        public override void Dispose()
+        protected override void Dispose(bool disposing)
         {
-            base.Dispose();
-            proposalList.Dispose();
-            detectionList.Dispose();
-            segmentation.Dispose();
-            output0Transposed.Dispose();
+            if (disposing)
+            {
+                proposalList.Dispose();
+                detectionList.Dispose();
+                segmentation.Dispose();
+                output0Transposed.Dispose();
+            }
+            base.Dispose(disposing);
         }
 
-        protected override void PostProcess()
+        protected override void PostProcess(IReadOnlyList<OrtValue> outputs)
         {
             var output0 = outputs[0].GetTensorDataAsSpan<float>();
 
             // 0: Parse predictions
-            // [0: predictions] shape: 1,116,8400 (Batch_size=1, xywh+conf_cls(80)+nm(32), Num_anchors)
+            // [0: predictions] shape: 1,116,8400 (Batch_size=1, XyWh+conf_cls(80)+nm(32), Num_anchors)
             generateProposalsMarker.Begin();
             GenerateProposals(output0, proposalList, options.confidenceThreshold);
             generateProposalsMarker.End();
@@ -186,10 +172,33 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             IDetection<Detection>.NMS(proposalList.AsArray(), detectionList, options.nmsThreshold);
 
             segmentationMarker.Begin();
-            // [1: protos] shape: 1,32,160,160
+            // [1: proto] shape: 1,32,160,160
             var output1 = outputs[1].GetTensorDataAsSpan<float>();
             segmentation.Process(output0Transposed, output1, Detections);
             segmentationMarker.End();
+        }
+
+        private void EnsurePostProcessResources(IReadOnlyList<OrtValue> outputs)
+        {
+            // Output 0
+            {
+                var info = outputs[0].GetTensorTypeAndShape();
+                Assert.AreEqual(3, info.DimensionsCount);
+                output0Shape = new int3((int)info.Shape[0], (int)info.Shape[1], (int)info.Shape[2]);
+                output0Transposed = new NativeArray<float>((int)info.ElementCount, Allocator.Persistent);
+
+                Assert.AreEqual(8400, output0Shape.z, "Support only 8400 anchors");
+                proposalList = new NativeList<Detection>(output0Shape.z, Allocator.Persistent);
+                detectionList = new NativeList<Detection>(options.maxDetectionCount, Allocator.Persistent);
+            }
+
+            // Output 1
+            {
+                var info = outputs[1].GetTensorTypeAndShape();
+                Assert.AreEqual(4, info.DimensionsCount);
+                var shape = new int3((int)info.Shape[1], (int)info.Shape[2], (int)info.Shape[3]);
+                segmentation = new Yolo11SegVisualize(shape, Colors, options);
+            }
         }
 
         /// <summary>
@@ -213,10 +222,10 @@ namespace Microsoft.ML.OnnxRuntime.Examples
 
             Assert.AreEqual(1, output0Shape.x, "Support only batch size 1");
 
-            // shape: 116,8400 (xywh+conf_cls(80)+nm(32), Num_anchors)
+            // shape: 116,8400 (XyWh+conf_cls(80)+nm(32), Num_anchors)
             var tensor2D = tensor.AsSpan2D(output0Shape.yz);
 
-            // shape: 8400,116 (Num_anchors, xywh+conf_cls(80)+nm(32))
+            // shape: 8400,116 (Num_anchors, XyWh+conf_cls(80)+nm(32))
             var tensorTransposed = new Span2D<float>(output0Transposed, output0Shape.zy);
             tensor2D.TransposeJob(tensorTransposed).Complete();
 
@@ -228,7 +237,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                 classCount = classCount,
                 confidenceThreshold = confidenceThreshold,
                 // reciprocal width and height
-                sizeScale = new float2(1f / width, 1f / height),
+                sizeScale = new float2(1f / Width, 1f / Height),
                 anchorStride = output0Shape.y,
                 proposals = proposalsWriter,
             }.Schedule(output0Shape.z, 64).Complete();
@@ -237,7 +246,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         [BurstCompile]
         private struct GenerateProposalsJob : IJobParallelFor
         {
-            // shape: 8400,116 (Num_anchors, xywh+conf_cls(80)+nm(32))
+            // shape: 8400,116 (Num_anchors, XyWh+conf_cls(80)+nm(32))
             [ReadOnly]
             public NativeArray<float> output0Transposed;
             public int classCount;
