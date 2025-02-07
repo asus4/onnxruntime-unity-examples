@@ -13,6 +13,9 @@ public class Yolo11SegSample : MonoBehaviour
     private OrtAsset model;
 
     [SerializeField]
+    private RemoteFile modelFile = new("https://github.com/asus4/onnxruntime-unity-examples/releases/download/v0.2.7/yolo11n-seg.onnx");
+
+    [SerializeField]
     private Yolo11Seg.Options options;
 
     [Header("Visualization Options")]
@@ -33,9 +36,12 @@ public class Yolo11SegSample : MonoBehaviour
     private Image[] detectionBoxOutline;
     private readonly StringBuilder sb = new();
 
-    private void Start()
+    private async void Start()
     {
-        inference = new Yolo11Seg(model.bytes, options);
+        byte[] onnxFile = model != null
+            ? model.bytes
+            : await modelFile.Load(destroyCancellationToken);
+        inference = new Yolo11Seg(onnxFile, options);
 
         detectionBoxes = new TMPro.TMP_Text[maxDetections];
         detectionBoxOutline = new Image[maxDetections];
