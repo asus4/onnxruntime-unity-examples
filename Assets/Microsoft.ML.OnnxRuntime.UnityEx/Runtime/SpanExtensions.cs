@@ -28,14 +28,20 @@ namespace Microsoft.ML.OnnxRuntime.UnityEx
         /// <typeparam name="T">The type of data</typeparam>
         public unsafe static void SetData<T>(this GraphicsBuffer buffer, ReadOnlySpan<T> span) where T : unmanaged
         {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             var handle = AtomicSafetyHandle.Create();
+#endif // ENABLE_UNITY_COLLECTIONS_CHECKS
             fixed (void* ptr = span)
             {
                 var arr = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<T>(ptr, span.Length, Allocator.None);
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
                 NativeArrayUnsafeUtility.SetAtomicSafetyHandle(ref arr, handle);
+#endif // ENABLE_UNITY_COLLECTIONS_CHECKS
                 buffer.SetData(arr);
             }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.Release(handle);
+#endif // ENABLE_UNITY_COLLECTIONS_CHECKS
         }
     }
 }
