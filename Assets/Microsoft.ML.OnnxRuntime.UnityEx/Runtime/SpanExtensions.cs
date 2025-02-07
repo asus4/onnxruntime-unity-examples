@@ -26,12 +26,15 @@ namespace Microsoft.ML.OnnxRuntime.UnityEx
         /// <param name="buffer">A GraphicsBuffer</param>
         /// <param name="span">The span data to be set</param>
         /// <typeparam name="T">The type of data</typeparam>
-        public static void SetData<T>(this GraphicsBuffer buffer, Span<T> span) where T : unmanaged
+        public unsafe static void SetData<T>(this GraphicsBuffer buffer, ReadOnlySpan<T> span) where T : unmanaged
         {
             var handle = AtomicSafetyHandle.Create();
-            var arr = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray(span, Allocator.None);
-            NativeArrayUnsafeUtility.SetAtomicSafetyHandle(ref arr, handle);
-            buffer.SetData(arr);
+            fixed (void* ptr = span)
+            {
+                var arr = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<T>(ptr, span.Length, Allocator.None);
+                NativeArrayUnsafeUtility.SetAtomicSafetyHandle(ref arr, handle);
+                buffer.SetData(arr);
+            }
             AtomicSafetyHandle.Release(handle);
         }
     }

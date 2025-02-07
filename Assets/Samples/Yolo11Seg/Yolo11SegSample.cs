@@ -42,14 +42,14 @@ public class Yolo11SegSample : MonoBehaviour
         inference = new Yolo11Seg(model.bytes, options);
 
         detectionBoxes = new TMPro.TMP_Text[maxDetections];
-        detectionBoxOutline = new UnityEngine.UI.Image[maxDetections];
+        detectionBoxOutline = new Image[maxDetections];
         for (int i = 0; i < maxDetections; i++)
         {
             var box = Instantiate(detectionBoxPrefab, detectionContainer);
             box.name = $"Detection {i}";
             box.gameObject.SetActive(false);
             detectionBoxes[i] = box;
-            detectionBoxOutline[i] = box.transform.GetChild(0).GetComponent<UnityEngine.UI.Image>();
+            detectionBoxOutline[i] = box.transform.GetChild(0).GetComponent<Image>();
         }
 
         if (TryGetComponent(out VirtualTextureSource source))

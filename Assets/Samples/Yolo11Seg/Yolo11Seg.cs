@@ -32,9 +32,13 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             public float confidenceThreshold = 0.25f;
             [Range(0f, 1f)]
             public float nmsThreshold = 0.45f;
+
+            [Header("Segmentation options")]
+            public ComputeShader visualizeSegmentationShader;
             [Range(5, 50)]
             public int maxSegmentation = 50;
-            public ComputeShader visualizeSegmentationShader;
+            [Range(0f, 3f)]
+            public float maskThreshold = 0.7f;
         }
 
         public readonly struct Detection : IDetection<Detection>
@@ -146,11 +150,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                 var info = outputs[1].GetTensorTypeAndShape();
                 Assert.AreEqual(4, info.DimensionsCount);
                 var shape = new int3((int)info.Shape[1], (int)info.Shape[2], (int)info.Shape[3]);
-                segmentation = new Yolo11SegVisualize(
-                    shape,
-                    options.visualizeSegmentationShader,
-                    Colors,
-                    options.maxSegmentation);
+                segmentation = new Yolo11SegVisualize(shape, Colors, options);
             }
         }
 
@@ -182,7 +182,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
 
             segmentationMarker.Begin();
             // [1: protos] shape: 1,32,160,160
-            var output1 = outputs[1].GetTensorMutableDataAsSpan<float>();
+            var output1 = outputs[1].GetTensorDataAsSpan<float>();
             segmentation.Process(output0Transposed, output1, Detections);
             segmentationMarker.End();
         }

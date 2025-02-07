@@ -4,7 +4,6 @@ using UnityEngine;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
-using UnityEngine.Assertions;
 
 namespace Microsoft.ML.OnnxRuntime.Examples
 {
@@ -25,16 +24,24 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         private readonly GraphicsBuffer segmentationBuffer;
         private readonly NativeArray<float> maskData;
         private readonly GraphicsBuffer maskBuffer;
+        private readonly NativeArray<int> maskLabelData;
+        private readonly GraphicsBuffer maskLabelBuffer;
         private readonly GraphicsBuffer colorTableBuffer;
         private readonly RenderTexture texture;
 
         public Texture Texture => texture;
 
         private static readonly int _MaskCount = Shader.PropertyToID("_MaskCount");
+        private static readonly int _MaskThreshold = Shader.PropertyToID("_MaskThreshold");
 
-        public Yolo11SegVisualize(int3 shape, ComputeShader compute, Color[] colors, int maxCount)
+        private readonly Yolo11Seg.Options options;
+
+        public Yolo11SegVisualize(int3 shape, Color[] colors, Yolo11Seg.Options options)
         {
-            this.compute = compute;
+            this.options = options;
+            this.compute = options.visualizeSegmentationShader;
+            int maxCount = options.maxSegmentation;
+
             // Segmentation Buffer
             {
                 int count = shape.x * shape.y * shape.z;
@@ -45,12 +52,16 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             {
                 maskData = new NativeArray<float>(maxCount * 32, Allocator.Persistent);
                 maskBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, maxCount, sizeof(float) * 32);
+
+                maskLabelData = new NativeArray<int>(maxCount, Allocator.Persistent);
+                maskLabelBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, maxCount, sizeof(int));
             }
 
             // Fill Color Table
             {
-                colorTableBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, maxCount, UnsafeUtility.SizeOf<Color>());
-                var colorTable = new Color[maxCount];
+                const int LABEL_COUNT = 80;
+                colorTableBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, LABEL_COUNT, UnsafeUtility.SizeOf<Color>());
+                var colorTable = new Color[LABEL_COUNT];
                 for (int i = 0; i < colorTable.Length; i++)
                 {
                     colorTable[i] = colors[i % colors.Length];
@@ -69,9 +80,11 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             kernel = compute.FindKernel("SegmentationToTexture");
             compute.SetBuffer(kernel, "_SegmentationBuffer", segmentationBuffer);
             compute.SetBuffer(kernel, "_MaskBuffer", maskBuffer);
+            compute.SetBuffer(kernel, "_MaskLabelBuffer", maskLabelBuffer);
             compute.SetBuffer(kernel, "_ColorTable", colorTableBuffer);
             compute.SetTexture(kernel, "_OutputTexture", texture);
             compute.SetInts("_OutputSize", new int[] { width, height });
+            compute.SetFloat(_MaskThreshold, options.maskThreshold);
         }
 
         public void Dispose()
@@ -79,6 +92,8 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             segmentationBuffer.Release();
             maskData.Dispose();
             maskBuffer.Release();
+            maskLabelData.Dispose();
+            maskLabelBuffer.Release();
             colorTableBuffer.Release();
             texture.Release();
             UnityEngine.Object.Destroy(texture);
@@ -87,7 +102,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         public void Process(
             // 1(batch), 8400(anchor), 116(data)
             NativeArray<float> output0Transposed,
-            Span<float> output1,
+            ReadOnlySpan<float> output1,
             NativeArray<Yolo11Seg.Detection>.ReadOnly detections)
         {
             segmentationBuffer.SetData(output1);
@@ -98,20 +113,25 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                 var output0Tensor = output0Span.AsSpan2D(new int2(8400, 116));
                 int count = Math.Min(maskBuffer.count, detections.Length);
                 var detectionSpan = detections.AsReadOnlySpan()[..count];
-                var destination = maskData.AsSpan();
+                var maskSpan = maskData.AsSpan();
+                var maskLabelSpan = maskLabelData.AsSpan();
                 const int MASK_SIZE = 32;
 
                 // Copy each detection's mask to buffer
-                for (int i = 0; i < detectionSpan.Length; i++)
+                for (int i = 0; i < count; i++)
                 {
                     var detection = detectionSpan[i];
                     var mask = output0Tensor[detection.anchorId][^MASK_SIZE..];
 
-                    mask.CopyTo(destination.Slice(i * MASK_SIZE, MASK_SIZE));
+                    mask.CopyTo(maskSpan.Slice(i * MASK_SIZE, MASK_SIZE));
+                    maskLabelSpan[i] = detection.label;
                 }
                 maskBuffer.SetData(maskData, 0, 0, count * MASK_SIZE);
+                maskLabelBuffer.SetData(maskLabelData, 0, 0, count);
                 compute.SetInt(_MaskCount, count);
             }
+
+            compute.SetFloat(_MaskThreshold, options.maskThreshold);
 
             // Run compute shader
             compute.Dispatch(kernel, texture.width / 8, texture.height / 8, 1);

@@ -1,13 +1,26 @@
 #pragma kernel SegmentationToTexture
 
+// Raw segmentation output1 from Yolo11
 // shape: 1,32,160,160
 Buffer<float> _SegmentationBuffer;
+
+// 32 mask for detection converted from output0
+// shape: _MaskCount, 32
 Buffer<float> _MaskBuffer;
+
+// Label of each mask
+// shape: _MaskCount, 1
+Buffer<int> _MaskLabelBuffer;
+
+// shape: CLASS_COUNT(80), Color
 Buffer<float4> _ColorTable;
 
+float _MaskThreshold;
 uint _MaskCount;
 uint2 _OutputSize;
 RWTexture2D<float4> _OutputTexture;
+
+#define MASK_SIZE 32
 
 // Get index of NCHW tensor
 uint IdxNCHW(uint c, uint y, uint x)
@@ -18,21 +31,29 @@ uint IdxNCHW(uint c, uint y, uint x)
 [numthreads(8,8,1)]
 void SegmentationToTexture (uint2 id : SV_DispatchThreadID)
 {
-    uint height = 159;
+    uint height = _OutputSize.y - 1;
 
     int maxIndex = -1;
     float maxValue = -1.0;
-    for (uint i = 0; i < 32; i++)
+
+    for(uint detectionId = 0; detectionId < _MaskCount; detectionId++)
     {
-        float value = _SegmentationBuffer[IdxNCHW(i, height - id.y, id.x)];
-        if(value > maxValue)
+        float sum = 0;
+        for (uint maskId = 0; maskId < MASK_SIZE; maskId++)
         {
-            maxIndex = i;
-            maxValue = value;
+            // sum += segmentation * mask
+            sum += _SegmentationBuffer[IdxNCHW(maskId, height - id.y, id.x)]
+                * _MaskBuffer[detectionId * MASK_SIZE + maskId];
+        }
+        if(sum > maxValue)
+        {
+            maxIndex = detectionId;
+            maxValue = sum;
         }
     }
-
-    _OutputTexture[id] = maxValue > 0.9
-        ? _ColorTable[maxIndex]
-        : float4(1.0, 0.0, 0.0, 1.0);
+    
+    int colorId = _MaskLabelBuffer[maxIndex];
+    _OutputTexture[id] = maxValue > _MaskThreshold
+        ? _ColorTable[colorId]
+        : float4(0.0, 0.0, 0.0, 0.0);
 }
