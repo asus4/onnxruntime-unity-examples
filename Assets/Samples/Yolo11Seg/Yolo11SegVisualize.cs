@@ -31,7 +31,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
 
         public Texture Texture => texture;
 
-        private static readonly int _MaskCount = Shader.PropertyToID("_MaskCount");
+        private static readonly int _DetectionCount = Shader.PropertyToID("_DetectionCount");
         private static readonly int _MaskThreshold = Shader.PropertyToID("_MaskThreshold");
 
         private readonly Yolo11Seg.Options options;
@@ -40,7 +40,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         {
             this.options = options;
             this.compute = options.visualizeSegmentationShader;
-            int maxCount = options.maxSegmentation;
+            int maxCount = options.maxDetectionCount;
 
             // Segmentation Buffer
             {
@@ -118,7 +118,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                 const int MASK_SIZE = 32;
 
                 // Copy each detection's mask to buffer
-                for (int i = 0; i < count; i++)
+                for (int i = 0; i < detectionSpan.Length; i++)
                 {
                     var detection = detectionSpan[i];
                     var mask = output0Tensor[detection.anchorId][^MASK_SIZE..];
@@ -128,7 +128,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                 }
                 maskBuffer.SetData(maskData, 0, 0, count * MASK_SIZE);
                 maskLabelBuffer.SetData(maskLabelData, 0, 0, count);
-                compute.SetInt(_MaskCount, count);
+                compute.SetInt(_DetectionCount, count);
             }
 
             compute.SetFloat(_MaskThreshold, options.maskThreshold);

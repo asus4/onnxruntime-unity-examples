@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.CompilerServices;
+using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine.Assertions;
 
@@ -37,10 +38,10 @@ namespace Microsoft.ML.OnnxRuntime.UnityEx
 
         public static implicit operator ReadOnlySpan2D<T>(Span2D<T> span) => new(span.span, span.shape);
 
-        public void Transpose(Span2D<T> output)
+        public JobHandle TransposeJob(Span2D<T> output)
         {
             ReadOnlySpan<T> readOnlySpan = span;
-            readOnlySpan.Transpose(output.span, shape.y, shape.x);
+            return readOnlySpan.TransposeJob(output.span, shape.y, shape.x);
         }
     }
 
@@ -72,9 +73,9 @@ namespace Microsoft.ML.OnnxRuntime.UnityEx
             get => span.Slice(x * shape.y, shape.y);
         }
 
-        public unsafe void Transpose(Span2D<T> output)
+        public unsafe JobHandle TransposeJob(Span2D<T> output)
         {
-            span.Transpose(output.span, shape.y, shape.x);
+            return span.TransposeJob(output.span, shape.y, shape.x);
         }
     }
 }

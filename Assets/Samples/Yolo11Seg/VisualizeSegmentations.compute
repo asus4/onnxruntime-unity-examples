@@ -5,18 +5,18 @@
 Buffer<float> _SegmentationBuffer;
 
 // 32 mask for detection converted from output0
-// shape: _MaskCount, 32
+// shape: _DetectionCount, 32
 Buffer<float> _MaskBuffer;
 
 // Label of each mask
-// shape: _MaskCount, 1
+// shape: _DetectionCount, 1
 Buffer<int> _MaskLabelBuffer;
 
 // shape: CLASS_COUNT(80), Color
 Buffer<float4> _ColorTable;
 
 float _MaskThreshold;
-uint _MaskCount;
+uint _DetectionCount;
 uint2 _OutputSize;
 RWTexture2D<float4> _OutputTexture;
 
@@ -36,13 +36,13 @@ void SegmentationToTexture (uint2 id : SV_DispatchThreadID)
     int maxIndex = -1;
     float maxValue = -1.0;
 
-    for(uint detectionId = 0; detectionId < _MaskCount; detectionId++)
+    for(uint detectionId = 0; detectionId < _DetectionCount; detectionId++)
     {
         float sum = 0;
         for (uint maskId = 0; maskId < MASK_SIZE; maskId++)
         {
             // sum += segmentation * mask
-            sum += _SegmentationBuffer[IdxNCHW(maskId, height - id.y, id.x)]
+            sum += _SegmentationBuffer[IdxNCHW(maskId, height - id.y, id.x)] // flip y
                 * _MaskBuffer[detectionId * MASK_SIZE + maskId];
         }
         if(sum > maxValue)
@@ -51,7 +51,7 @@ void SegmentationToTexture (uint2 id : SV_DispatchThreadID)
             maxValue = sum;
         }
     }
-    
+
     int colorId = _MaskLabelBuffer[maxIndex];
     _OutputTexture[id] = maxValue > _MaskThreshold
         ? _ColorTable[colorId]
