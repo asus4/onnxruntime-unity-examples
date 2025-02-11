@@ -1,4 +1,5 @@
 using System;
+using Microsoft.ML.OnnxRuntime.Unity;
 using Microsoft.ML.OnnxRuntime.UnityEx;
 using UnityEngine;
 using Unity.Collections;
@@ -28,6 +29,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         private readonly GraphicsBuffer colorTableBuffer;
         private readonly RenderTexture texture;
 
+        public readonly int3 shape;
         public Texture Texture => texture;
 
         private static readonly int _DetectionCount = Shader.PropertyToID("_DetectionCount");
@@ -37,6 +39,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
 
         public Yolo11SegVisualize(int3 shape, Color[] colors, Yolo11Seg.Options options)
         {
+            this.shape = shape;
             this.options = options;
             this.compute = options.visualizeSegmentationShader;
             int maxCount = options.maxDetectionCount;
@@ -67,8 +70,8 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                 colorTableBuffer.SetData(colorTable);
             }
 
-            int width = shape.y;
-            int height = shape.z;
+            int width = shape.z;
+            int height = shape.y;
             texture = new RenderTexture(width, height, 0, RenderTextureFormat.ARGB32)
             {
                 enableRandomWrite = true
@@ -97,8 +100,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         }
 
         public void Process(
-            // 1(batch), 8400(anchor), 116(data)
-            NativeArray<float> output0Transposed,
+            ReadOnlySpan2D<float> output0Transposed,
             ReadOnlySpan<float> output1,
             NativeArray<Yolo11Seg.Detection>.ReadOnly detections)
         {
@@ -108,8 +110,6 @@ namespace Microsoft.ML.OnnxRuntime.Examples
 
             // Prepare mask data
             {
-                var output0Span = output0Transposed.AsReadOnlySpan();
-                var output0Tensor = output0Span.AsSpan2D(new int2(8400, 116));
                 var maskSpan = maskData.AsSpan();
 
                 // Copy each detection mask
@@ -117,7 +117,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                 {
                     var detection = detectionSpan[i];
                     // Mask: 32 from the end
-                    var mask = output0Tensor[detection.anchorId][^MASK_SIZE..];
+                    var mask = output0Transposed[detection.anchorId][^MASK_SIZE..];
                     mask.CopyTo(maskSpan.Slice(i * MASK_SIZE, MASK_SIZE));
                 }
             }

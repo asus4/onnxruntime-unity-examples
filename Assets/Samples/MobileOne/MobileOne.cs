@@ -62,7 +62,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             }
         }
 
-        protected override void PostProcess()
+        protected override void PostProcess(IReadOnlyList<OrtValue> outputs)
         {
             // Copy scores to labels
             var output = outputs[0].GetTensorDataAsSpan<float>();

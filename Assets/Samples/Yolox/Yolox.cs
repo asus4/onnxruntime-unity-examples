@@ -122,17 +122,20 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             var labels = options.labelFile.text.Split('\n', StringSplitOptions.RemoveEmptyEntries);
             labelNames = Array.AsReadOnly(labels);
             Assert.AreEqual(NUM_CLASSES, labelNames.Count);
-            anchors = Anchor.GenerateAnchors(width, height);
+            anchors = Anchor.GenerateAnchors(Width, Height);
         }
 
-        public override void Dispose()
+        protected override void Dispose(bool disposing)
         {
-            base.Dispose();
-            proposalsList.Dispose();
-            detectionsList.Dispose();
+            if (disposing)
+            {
+                proposalsList.Dispose();
+                detectionsList.Dispose();
+            }
+            base.Dispose(disposing);
         }
 
-        protected override void PostProcess()
+        protected override void PostProcess(IReadOnlyList<OrtValue> outputs)
         {
             var output0 = outputs[0].GetTensorDataAsSpan<float>();
 
@@ -166,8 +169,8 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         {
             int num_anchors = anchors.Length;
 
-            float widthScale = 1f / width;
-            float heightScale = 1f / height;
+            float widthScale = 1f / Width;
+            float heightScale = 1f / Height;
 
             result.Clear();
 

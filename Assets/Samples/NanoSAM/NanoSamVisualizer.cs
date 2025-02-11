@@ -40,7 +40,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         private static readonly int _Threshold = Shader.PropertyToID("_Threshold");
 
         private RenderTexture renderTexture;
-        private ComputeBuffer maskBuffer;
+        private GraphicsBuffer maskBuffer;
         private int kernel;
 
         private JointBilateralFilter filter;
@@ -66,7 +66,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             };
             renderTexture.Create();
 
-            maskBuffer = new ComputeBuffer(4 * 256 * 256, sizeof(float));
+            maskBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, 4 * 256 * 256, sizeof(float));
 
             kernel = tensorToTexShader.FindKernel("VisualizeMask");
             tensorToTexShader.SetInts("_OutputSize", renderTexture.width, renderTexture.height);
