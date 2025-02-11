@@ -19,7 +19,7 @@ public class Yolo11SegSample : MonoBehaviour
     private OrtAsset model;
 
     [SerializeField]
-    private RemoteFile modelFile = new("https://github.com/asus4/onnxruntime-unity-examples/releases/download/v0.2.7/yolo11n-seg.onnx");
+    private RemoteFile modelFile = new("https://github.com/asus4/onnxruntime-unity-examples/releases/download/v0.2.7/yolo11n-seg-dynamic.onnx");
 
     [SerializeField]
     private Yolo11Seg.Options options;

@@ -972,9 +972,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c198640d791f8444b808c35e6058e305, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  model: {fileID: 1840921532545725537, guid: 02a357679f0c24786a2b1c38afb06492, type: 3}
+  model: {fileID: 1840921532545725537, guid: 2c462269925fd4987a9b3c20c4ac88e3, type: 3}
   modelFile:
-    url: https://github.com/asus4/onnxruntime-unity-examples/releases/download/v0.2.7/yolo11n-seg.onnx
+    url: https://github.com/asus4/onnxruntime-unity-examples/releases/download/v0.2.7/yolo11n-seg-dynamic.onnx
     downloadLocation: 0
   options:
     aspectMode: 1
