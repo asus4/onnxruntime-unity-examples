@@ -972,13 +972,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c198640d791f8444b808c35e6058e305, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  model: {fileID: 1840921532545725537, guid: 2c462269925fd4987a9b3c20c4ac88e3, type: 3}
+  model: {fileID: 1840921532545725537, guid: 02a357679f0c24786a2b1c38afb06492, type: 3}
   modelFile:
     url: https://github.com/asus4/onnxruntime-unity-examples/releases/download/v0.2.7/yolo11n-seg.onnx
     downloadLocation: 0
   options:
     aspectMode: 1
-    dynamicMaxSize: 640
     mean: {x: 0, y: 0, z: 0}
     std: {x: 1, y: 1, z: 1}
     executionProvider:
@@ -986,13 +985,43 @@ MonoBehaviour:
     labelFile: {fileID: 4900000, guid: 99c28efdf14034bb8a7680d5a42d7d14, type: 3}
     confidenceThreshold: 0.25
     nmsThreshold: 0.45
+    dynamicMaxSize: 640
     visualizeSegmentationShader: {fileID: 7200000, guid: ea14041ec173d4e4b804d8c8e2eb8722, type: 3}
     maxDetectionCount: 50
     maskThreshold: 0.5
   detectionBoxPrefab: {fileID: 5453284232671403399, guid: f8f20ba3722174cd995b4e1ed42ec1f3, type: 3}
   detectionContainer: {fileID: 429657176}
   maxDetections: 20
-  segmentationImage: {fileID: 1531797953}
+  OnSegmentationTexture:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 1531797953}
+        m_TargetAssemblyTypeName: UnityEngine.UI.RawImage, UnityEngine.UI
+        m_MethodName: set_texture
+        m_Mode: 0
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+  OnSegmentationAspectChange:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 1531797955}
+        m_TargetAssemblyTypeName: UnityEngine.UI.AspectRatioFitter, UnityEngine.UI
+        m_MethodName: set_aspectRatio
+        m_Mode: 0
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!1 &1965107666
 GameObject:
   m_ObjectHideFlags: 0

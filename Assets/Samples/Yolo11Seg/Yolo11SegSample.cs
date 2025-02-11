@@ -4,11 +4,17 @@ using Microsoft.ML.OnnxRuntime.Unity;
 using Microsoft.ML.OnnxRuntime.Examples;
 using TextureSource;
 using UnityEngine;
+using UnityEngine.Events;
 using UnityEngine.UI;
 
 [RequireComponent(typeof(VirtualTextureSource))]
 public class Yolo11SegSample : MonoBehaviour
 {
+    [Serializable]
+    public class TextureEvent : UnityEvent<Texture> { }
+    [Serializable]
+    public class AspectChangeEvent : UnityEvent<float> { }
+
     [SerializeField]
     private OrtAsset model;
 
@@ -28,12 +34,13 @@ public class Yolo11SegSample : MonoBehaviour
     [SerializeField]
     private int maxDetections = 20;
 
-    [SerializeField]
-    private RawImage segmentationImage;
+    public TextureEvent OnSegmentationTexture = new();
+    public AspectChangeEvent OnSegmentationAspectChange = new();
 
     private Yolo11Seg inference;
     private TMPro.TMP_Text[] detectionBoxes;
     private Image[] detectionBoxOutline;
+    private Texture prevSegmentationTexture;
     private readonly StringBuilder sb = new();
 
     private async void Start()
@@ -66,8 +73,8 @@ public class Yolo11SegSample : MonoBehaviour
         {
             source.OnTexture.RemoveListener(OnTexture);
         }
-
         inference?.Dispose();
+        prevSegmentationTexture = null;
     }
 
     public void OnTexture(Texture texture)
@@ -80,7 +87,15 @@ public class Yolo11SegSample : MonoBehaviour
         inference.Run(texture);
 
         UpdateDetectionBox(inference.Detections);
-        segmentationImage.texture = inference.SegmentationTexture;
+
+        // Invoke events when the segmentation texture is updated
+        var segTex = inference.SegmentationTexture;
+        if (prevSegmentationTexture != segTex)
+        {
+            OnSegmentationTexture.Invoke(segTex);
+            OnSegmentationAspectChange.Invoke((float)segTex.width / segTex.height);
+            prevSegmentationTexture = segTex;
+        }
     }
 
     private void UpdateDetectionBox(ReadOnlySpan<Yolo11Seg.Detection> detections)

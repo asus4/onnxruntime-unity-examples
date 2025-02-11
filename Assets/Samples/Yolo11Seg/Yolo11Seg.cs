@@ -35,6 +35,8 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             public float confidenceThreshold = 0.25f;
             [Range(0f, 1f)]
             public float nmsThreshold = 0.45f;
+            [Range(320, 1024)]
+            public int dynamicMaxSize = 640;
 
             [Header("Segmentation options")]
             public ComputeShader visualizeSegmentationShader;
@@ -130,13 +132,14 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         {
             this.options = options;
 
-            Assert.AreEqual(2, outputs.Count);
-
-            EnsurePostProcessResources(outputs);
-
             var labels = options.labelFile.text.Split('\n', StringSplitOptions.RemoveEmptyEntries);
             labelNames = Array.AsReadOnly(labels);
             classCount = labelNames.Count;
+
+            if (!isDynamicOutputShape)
+            {
+                EnsurePostProcessResources(outputs);
+            }
         }
 
         protected override void Dispose(bool disposing)
@@ -145,14 +148,54 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             {
                 proposalList.Dispose();
                 detectionList.Dispose();
-                segmentation.Dispose();
+                segmentation?.Dispose();
                 output0Transposed.Dispose();
             }
             base.Dispose(disposing);
         }
 
+        protected override void PreProcess(Texture texture)
+        {
+            if (isDynamicInputShape)
+            {
+                int2 texSize = new(texture.width, texture.height);
+                // Choose similar aspect ratio to the texture, 
+                // But needs to be multiple of 32 for YOLOv11
+                const int ALIGNMENT_SIZE = 32;
+                int2 dim = MathUtil.ResizeToMaxSize(texSize, options.dynamicMaxSize, ALIGNMENT_SIZE);
+
+                bool needResize = dim.x != Width || dim.y != Height;
+                if (needResize)
+                {
+                    // Resize input tensor
+                    textureToTensor.Dispose();
+                    textureToTensor = CreateTextureToTensor(dim.x, dim.y);
+
+                    foreach (var input in inputs)
+                    {
+                        input.Dispose();
+                    }
+                    var inputMetadata = session.InputMetadata;
+                    var metadata = inputMetadata.Values.First();
+                    var ortValue = OrtValue.CreateAllocatedTensorValue(
+                        OrtAllocator.DefaultInstance,
+                        metadata.ElementDataType,
+                        new long[] { 1, 3, dim.y, dim.x });
+                    inputs = new List<OrtValue>(1) { ortValue }.AsReadOnly();
+                    Debug.Log($"Resized input to {dim}");
+                }
+            }
+
+            base.PreProcess(texture);
+        }
+
         protected override void PostProcess(IReadOnlyList<OrtValue> outputs)
         {
+            if (isDynamicOutputShape)
+            {
+                EnsurePostProcessResources(outputs);
+            }
+
             var output0 = outputs[0].GetTensorDataAsSpan<float>();
 
             // 0: Parse predictions
@@ -172,23 +215,46 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             IDetection<Detection>.NMS(proposalList.AsArray(), detectionList, options.nmsThreshold);
 
             segmentationMarker.Begin();
+            // [0] 1(batch), 8400(anchor), 116(data)
             // [1: proto] shape: 1,32,160,160
+            var output0Span = output0Transposed.AsReadOnlySpan();
+            var output0Tensor = output0Span.AsSpan2D(output0Shape.zy);
             var output1 = outputs[1].GetTensorDataAsSpan<float>();
-            segmentation.Process(output0Transposed, output1, Detections);
+            segmentation.Process(output0Tensor, output1, Detections);
             segmentationMarker.End();
         }
 
         private void EnsurePostProcessResources(IReadOnlyList<OrtValue> outputs)
         {
+            Assert.AreEqual(2, outputs.Count);
+
             // Output 0
             {
                 var info = outputs[0].GetTensorTypeAndShape();
                 Assert.AreEqual(3, info.DimensionsCount);
-                output0Shape = new int3((int)info.Shape[0], (int)info.Shape[1], (int)info.Shape[2]);
+                int3 shape = new((int)info.Shape[0], (int)info.Shape[1], (int)info.Shape[2]);
+                if (shape.Equals(this.output0Shape))
+                {
+                    return;
+                }
+                this.output0Shape = shape;
+                Debug.Log($"New Output 0 shape: {shape}");
+
+                if (output0Transposed.IsCreated)
+                {
+                    output0Transposed.Dispose();
+                }
                 output0Transposed = new NativeArray<float>((int)info.ElementCount, Allocator.Persistent);
 
-                Assert.AreEqual(8400, output0Shape.z, "Support only 8400 anchors");
-                proposalList = new NativeList<Detection>(output0Shape.z, Allocator.Persistent);
+                if (proposalList.IsCreated)
+                {
+                    proposalList.Dispose();
+                }
+                proposalList = new NativeList<Detection>(shape.z, Allocator.Persistent);
+                if (detectionList.IsCreated)
+                {
+                    detectionList.Dispose();
+                }
                 detectionList = new NativeList<Detection>(options.maxDetectionCount, Allocator.Persistent);
             }
 
@@ -197,6 +263,13 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                 var info = outputs[1].GetTensorTypeAndShape();
                 Assert.AreEqual(4, info.DimensionsCount);
                 var shape = new int3((int)info.Shape[1], (int)info.Shape[2], (int)info.Shape[3]);
+
+                if (segmentation != null && segmentation.shape.Equals(shape))
+                {
+                    return;
+                }
+                Debug.Log($"New Output 1 shape: {shape}");
+                segmentation?.Dispose();
                 segmentation = new Yolo11SegVisualize(shape, Colors, options);
             }
         }
