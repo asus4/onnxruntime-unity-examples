@@ -6,6 +6,7 @@ using TextureSource;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
+using System.Threading;
 
 [RequireComponent(typeof(VirtualTextureSource))]
 public class Yolo11SegSample : MonoBehaviour
@@ -23,6 +24,9 @@ public class Yolo11SegSample : MonoBehaviour
 
     [SerializeField]
     private Yolo11Seg.Options options;
+
+    [SerializeField]
+    private bool useAsync = false;
 
     [Header("Visualization Options")]
     [SerializeField]
@@ -42,6 +46,7 @@ public class Yolo11SegSample : MonoBehaviour
     private Image[] detectionBoxOutline;
     private Texture prevSegmentationTexture;
     private readonly StringBuilder sb = new();
+    private Awaitable currentTask = null;
 
     private async void Start()
     {
@@ -84,7 +89,42 @@ public class Yolo11SegSample : MonoBehaviour
             return;
         }
 
+        if (useAsync)
+        {
+            // Async version
+            bool isNextAvailable = currentTask == null || currentTask.IsCompleted;
+            if (isNextAvailable)
+            {
+                currentTask = RunAsync(texture, destroyCancellationToken);
+            }
+        }
+        else
+        {
+            // Sync version
+            Run(texture);
+        }
+    }
+
+    private void Run(Texture texture)
+    {
         inference.Run(texture);
+
+        UpdateDetectionBox(inference.Detections);
+
+        // Invoke events when the segmentation texture is updated
+        var segTex = inference.SegmentationTexture;
+        if (prevSegmentationTexture != segTex)
+        {
+            OnSegmentationTexture.Invoke(segTex);
+            OnSegmentationAspectChange.Invoke((float)segTex.width / segTex.height);
+            prevSegmentationTexture = segTex;
+        }
+    }
+
+    private async Awaitable RunAsync(Texture texture, CancellationToken cancellationToken)
+    {
+        await inference.RunAsync(texture, cancellationToken);
+        await Awaitable.MainThreadAsync();
 
         UpdateDetectionBox(inference.Detections);
 
