@@ -1,4 +1,5 @@
 using System.Text;
+using System.Threading;
 using Microsoft.ML.OnnxRuntime.Unity;
 using Microsoft.ML.OnnxRuntime.Examples;
 using TextureSource;
@@ -7,28 +8,31 @@ using UnityEngine.Events;
 using UnityEngine.UI;
 
 [RequireComponent(typeof(VirtualTextureSource))]
-public class MobileOneSample : MonoBehaviour
+public sealed class MobileOneSample : MonoBehaviour
 {
     [System.Serializable]
     public class TextUnityEvent : UnityEvent<string> { }
 
     [SerializeField]
-    private OrtAsset model;
+    OrtAsset model;
 
     [SerializeField]
-    private MobileOne.Options options;
+    MobileOne.Options options;
 
     [SerializeField]
-    private RawImage debugImage;
+    RawImage debugImage;
 
+    [SerializeField]
+    bool runBackground = false;
 
-    private MobileOne inference;
+    MobileOne inference;
 
     public TextUnityEvent onDebugTopK;
 
-    private readonly StringBuilder sb = new();
+    readonly StringBuilder sb = new();
+    Awaitable currentAwaitable = null;
 
-    private void Start()
+    void Start()
     {
         inference = new MobileOne(model.bytes, options);
 
@@ -40,7 +44,7 @@ public class MobileOneSample : MonoBehaviour
         }
     }
 
-    private void OnDestroy()
+    void OnDestroy()
     {
         if (TryGetComponent(out VirtualTextureSource source))
         {
@@ -52,22 +56,46 @@ public class MobileOneSample : MonoBehaviour
 
     public void OnTexture(Texture texture)
     {
-        inference?.Run(texture);
-
-        DebugLabels();
+        if (runBackground)
+        {
+            bool isNextAvailable = currentAwaitable == null || currentAwaitable.IsCompleted;
+            if (isNextAvailable)
+            {
+                currentAwaitable = RunAsync(texture, destroyCancellationToken);
+            }
+        }
+        else
+        {
+            Run(texture);
+        }
     }
 
-    private void DebugLabels()
+    void Run(Texture texture)
+    {
+        inference?.Run(texture);
+        ShowLabels();
+    }
+
+    async Awaitable RunAsync(Texture texture, CancellationToken cancellationToken)
+    {
+        await inference.RunAsync(texture, cancellationToken);
+        await Awaitable.MainThreadAsync();
+        ShowLabels();
+    }
+
+    void ShowLabels()
     {
         var texture = inference.InputTexture;
         debugImage.texture = texture;
+
+        var labelNames = inference.labelNames;
 
         sb.Clear();
         sb.AppendLine($"Input: {texture.width}x{texture.height}");
         sb.AppendLine($"Top K:");
         foreach (var label in inference.TopKLabels)
         {
-            sb.AppendLine($"{label.name} ({label.score})");
+            sb.AppendLine($"{labelNames[label.index]} ({label.score})");
         }
         onDebugTopK.Invoke(sb.ToString());
     }

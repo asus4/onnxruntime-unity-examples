@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading;
 using Microsoft.ML.OnnxRuntime.Unity;
 using Microsoft.ML.OnnxRuntime.UnityEx;
 using Unity.Burst;
@@ -158,35 +159,18 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         {
             if (isDynamicInputShape)
             {
-                int2 texSize = new(texture.width, texture.height);
-                // Choose similar aspect ratio to the texture, 
-                // But needs to be multiple of 32 for YOLOv11
-                const int ALIGNMENT_SIZE = 32;
-                int2 dim = MathUtil.ResizeToMaxSize(texSize, options.dynamicMaxSize, ALIGNMENT_SIZE);
-
-                bool needResize = dim.x != Width || dim.y != Height;
-                if (needResize)
-                {
-                    // Resize input tensor
-                    textureToTensor.Dispose();
-                    textureToTensor = CreateTextureToTensor(dim.x, dim.y);
-
-                    foreach (var input in inputs)
-                    {
-                        input.Dispose();
-                    }
-                    var inputMetadata = session.InputMetadata;
-                    var metadata = inputMetadata.Values.First();
-                    var ortValue = OrtValue.CreateAllocatedTensorValue(
-                        OrtAllocator.DefaultInstance,
-                        metadata.ElementDataType,
-                        new long[] { 1, 3, dim.y, dim.x });
-                    inputs = new List<OrtValue>(1) { ortValue }.AsReadOnly();
-                    Debug.Log($"Resized input to {dim}");
-                }
+                EnsureDynamicInputs(texture);
             }
-
             base.PreProcess(texture);
+        }
+
+        protected override Awaitable PreProcessAsync(Texture texture, CancellationToken cancellationToken)
+        {
+            if (isDynamicInputShape)
+            {
+                EnsureDynamicInputs(texture);
+            }
+            return base.PreProcessAsync(texture, cancellationToken);
         }
 
         protected override void PostProcess(IReadOnlyList<OrtValue> outputs)
@@ -201,7 +185,8 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             // 0: Parse predictions
             // [0: predictions] shape: 1,116,8400 (Batch_size=1, XyWh+conf_cls(80)+nm(32), Num_anchors)
             generateProposalsMarker.Begin();
-            GenerateProposals(output0, proposalList, options.confidenceThreshold);
+            ScheduleGenerateProposalsJob(output0, proposalList, options.confidenceThreshold)
+                .Complete();
             generateProposalsMarker.End();
 
             if (proposalList.Length == 0)
@@ -222,6 +207,43 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             var output1 = outputs[1].GetTensorDataAsSpan<float>();
             segmentation.Process(output0Tensor, output1, Detections);
             segmentationMarker.End();
+        }
+
+        private void EnsureDynamicInputs(Texture texture)
+        {
+            if (!isDynamicInputShape)
+            {
+                return;
+            }
+
+            int2 texSize = new(texture.width, texture.height);
+            // Choose similar aspect ratio to the texture, 
+            // But needs to be multiple of 32 for YOLOv11
+            const int ALIGNMENT_SIZE = 32;
+            int2 dim = MathUtil.ResizeToMaxSize(texSize, options.dynamicMaxSize, ALIGNMENT_SIZE);
+
+            bool needResize = dim.x != Width || dim.y != Height;
+            if (!needResize)
+            {
+                return;
+            }
+
+            // Resize input tensor
+            textureToTensor.Dispose();
+            textureToTensor = CreateTextureToTensor(dim.x, dim.y);
+
+            foreach (var input in inputs)
+            {
+                input.Dispose();
+            }
+            var inputMetadata = session.InputMetadata;
+            var metadata = inputMetadata.Values.First();
+            var ortValue = OrtValue.CreateAllocatedTensorValue(
+                OrtAllocator.DefaultInstance,
+                metadata.ElementDataType,
+                new long[] { 1, 3, dim.y, dim.x });
+            inputs = new List<OrtValue>(1) { ortValue }.AsReadOnly();
+            Debug.Log($"Resized input to {dim}");
         }
 
         private void EnsurePostProcessResources(IReadOnlyList<OrtValue> outputs)
@@ -288,8 +310,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             return new Rect(min, max - min);
         }
 
-
-        private void GenerateProposals(ReadOnlySpan<float> tensor, NativeList<Detection> proposals, float confidenceThreshold)
+        private JobHandle ScheduleGenerateProposalsJob(ReadOnlySpan<float> tensor, NativeList<Detection> proposals, float confidenceThreshold)
         {
             proposals.Clear();
 
@@ -300,11 +321,11 @@ namespace Microsoft.ML.OnnxRuntime.Examples
 
             // shape: 8400,116 (Num_anchors, XyWh+conf_cls(80)+nm(32))
             var tensorTransposed = new Span2D<float>(output0Transposed, output0Shape.zy);
-            tensor2D.TransposeJob(tensorTransposed).Complete();
+            var transposeJobHandle = tensor2D.ScheduleTransposeJob(tensorTransposed);
 
             // Then generate proposals
             var proposalsWriter = proposals.AsParallelWriter();
-            new GenerateProposalsJob
+            return new GenerateProposalsJob
             {
                 output0Transposed = output0Transposed,
                 classCount = classCount,
@@ -313,7 +334,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                 sizeScale = new float2(1f / Width, 1f / Height),
                 anchorStride = output0Shape.y,
                 proposals = proposalsWriter,
-            }.Schedule(output0Shape.z, 64).Complete();
+            }.Schedule(output0Shape.z, 64, transposeJobHandle);
         }
 
         [BurstCompile]

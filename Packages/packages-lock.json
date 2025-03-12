@@ -1,18 +1,18 @@
 {
   "dependencies": {
     "com.github.asus4.onnxruntime": {
-      "version": "0.3.0",
+      "version": "0.3.1",
       "depth": 0,
       "source": "registry",
       "dependencies": {},
       "url": "https://registry.npmjs.com"
     },
     "com.github.asus4.onnxruntime-extensions": {
-      "version": "0.3.0",
+      "version": "0.3.1",
       "depth": 0,
       "source": "registry",
       "dependencies": {
-        "com.github.asus4.onnxruntime": "0.3.0"
+        "com.github.asus4.onnxruntime": "0.3.1"
       },
       "url": "https://registry.npmjs.com"
     },
@@ -26,11 +26,11 @@
       "url": "https://registry.npmjs.com"
     },
     "com.github.asus4.onnxruntime.unity": {
-      "version": "0.3.0",
+      "version": "0.3.1",
       "depth": 0,
       "source": "registry",
       "dependencies": {
-        "com.github.asus4.onnxruntime": "0.3.0"
+        "com.github.asus4.onnxruntime": "0.3.1"
       },
       "url": "https://registry.npmjs.com"
     },

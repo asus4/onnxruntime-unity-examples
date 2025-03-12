@@ -38,10 +38,10 @@ namespace Microsoft.ML.OnnxRuntime.UnityEx
 
         public static implicit operator ReadOnlySpan2D<T>(Span2D<T> span) => new(span.span, span.shape);
 
-        public JobHandle TransposeJob(Span2D<T> output)
+        public JobHandle ScheduleTransposeJob(Span2D<T> output)
         {
             ReadOnlySpan<T> readOnlySpan = span;
-            return readOnlySpan.TransposeJob(output.span, shape.y, shape.x);
+            return readOnlySpan.ScheduleTransposeJob(output.span, shape.y, shape.x);
         }
     }
 
@@ -73,9 +73,9 @@ namespace Microsoft.ML.OnnxRuntime.UnityEx
             get => span.Slice(x * shape.y, shape.y);
         }
 
-        public unsafe JobHandle TransposeJob(Span2D<T> output)
+        public unsafe JobHandle ScheduleTransposeJob(Span2D<T> output)
         {
-            return span.TransposeJob(output.span, shape.y, shape.x);
+            return span.ScheduleTransposeJob(output.span, shape.y, shape.x);
         }
     }
 }

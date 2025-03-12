@@ -11,7 +11,7 @@ namespace Microsoft.ML.OnnxRuntime.UnityEx
     [BurstCompile]
     public static class BurstMethods
     {
-        public static unsafe JobHandle TransposeJob<T>(this ReadOnlySpan<T> input, Span<T> output, int outW, int outH)
+        public static unsafe JobHandle ScheduleTransposeJob<T>(this ReadOnlySpan<T> input, Span<T> output, int outW, int outH)
             where T : unmanaged
         {
             Assert.AreEqual(outW * outH, input.Length);
