@@ -26,7 +26,7 @@ public class Yolo11SegSample : MonoBehaviour
     private Yolo11Seg.Options options;
 
     [SerializeField]
-    private bool useAsync = false;
+    private bool runBackground = false;
 
     [Header("Visualization Options")]
     [SerializeField]
@@ -89,7 +89,7 @@ public class Yolo11SegSample : MonoBehaviour
             return;
         }
 
-        if (useAsync)
+        if (runBackground)
         {
             // Async version
             bool isNextAvailable = currentTask == null || currentTask.IsCompleted;
