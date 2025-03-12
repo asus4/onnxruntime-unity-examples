@@ -11,7 +11,7 @@ namespace Microsoft.ML.OnnxRuntime.UnityEx
     /// </summary>
     /// <typeparam name="T">Detection struct</typeparam>
     public interface IDetection<T> : IComparable<T>
-        where T : unmanaged
+        where T : unmanaged, IDetection<T>
     {
         int Label { get; }
         Rect Rect { get; }
@@ -22,26 +22,48 @@ namespace Microsoft.ML.OnnxRuntime.UnityEx
         /// <param name="proposals">A list of proposals which should be sorted in descending order</param>
         /// <param name="result">A result of NMS</param>
         /// <param name="iouThreshold">A threshold of IoU (Intersection over Union)</param>
-        /// <typeparam name="U">Detection</typeparam>
-        public unsafe static void NMS<U>(
-            NativeSlice<U> proposals,
-            NativeList<U> result,
+        public unsafe static void NMS(
+            NativeSlice<T> proposals,
+            NativeList<T> result,
             float iouThreshold)
-            where U : unmanaged, IDetection<U>
+        {
+            int proposalsLength = proposals.Length;
+            T* proposalsPtr = (T*)proposals.GetUnsafeReadOnlyPtr();
+            NMS(proposalsPtr, proposalsLength, result, iouThreshold);
+        }
+
+        /// <summary>
+        /// Non-Maximum Suppression (Multi-Class)
+        /// </summary>
+        /// <param name="proposals">A list of proposals which should be sorted in descending order</param>
+        /// <param name="result">A result of NMS</param>
+        /// <param name="iouThreshold">A threshold of IoU (Intersection over Union)</param>
+        public unsafe static void NMS(
+           NativeList<T> proposals,
+           NativeList<T> result,
+           float iouThreshold)
+        {
+            int proposalsLength = proposals.Length;
+            T* proposalsPtr = proposals.GetUnsafeReadOnlyPtr();
+            NMS(proposalsPtr, proposalsLength, result, iouThreshold);
+        }
+
+        unsafe static void NMS(
+            T* proposalsPtr,
+            int proposalsLength,
+            NativeList<T> result,
+            float iouThreshold)
         {
             result.Clear();
 
-            int proposalsLength = proposals.Length;
-            U* proposalsPtr = (U*)proposals.GetUnsafeReadOnlyPtr();
-
             for (int i = 0; i < proposalsLength; i++)
             {
-                U* a = proposalsPtr + i;
+                T* a = proposalsPtr + i;
                 bool keep = true;
 
                 for (int j = 0; j < result.Length; j++)
                 {
-                    U* b = (U*)result.GetUnsafeReadOnlyPtr() + j;
+                    T* b = result.GetUnsafeReadOnlyPtr() + j;
 
                     // Ignore different classes
                     if (b->Label != a->Label)
