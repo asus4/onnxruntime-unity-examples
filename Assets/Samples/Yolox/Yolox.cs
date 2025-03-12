@@ -108,7 +108,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         private NativeList<Detection> proposalsList;
         private NativeList<Detection> detectionsList;
 
-        public NativeArray<Detection>.ReadOnly Detections => detectionsList.AsReadOnly();
+        public ReadOnlySpan<Detection> Detections => detectionsList.AsReadOnly();
 
 
         static readonly ProfilerMarker generateProposalsMarker = new($"{typeof(Yolox).Name}.GenerateProposals");
