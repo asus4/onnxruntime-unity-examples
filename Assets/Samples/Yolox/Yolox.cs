@@ -104,6 +104,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         private readonly NativeArray<Anchor> anchors;
         private readonly Options options;
 
+        private NativeArray<float> output0Native;
         private NativeList<Detection> proposalsList;
         private NativeList<Detection> detectionsList;
 
@@ -134,6 +135,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         {
             if (disposing)
             {
+                output0Native.Dispose();
                 proposalsList.Dispose();
                 detectionsList.Dispose();
                 anchors.Dispose();
@@ -174,14 +176,19 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         {
             result.Clear();
 
-            // TODO: Consider using unsafe NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray instead of copying
-            using var featBlobNative = new NativeArray<float>(
-                feat_blob.ToArray(), Allocator.TempJob);
+            // TODO: Consider using unsafe NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray
+            // instead of copying
+            if (!output0Native.IsCreated)
+            {
+                output0Native = new NativeArray<float>(feat_blob.Length, Allocator.Persistent);
+            }
+            feat_blob.CopyTo(output0Native.AsSpan());
 
+            // Execute the job
             var job = new GenerateProposalsJob
             {
                 anchors = anchors,
-                featBlob = featBlobNative,
+                featBlob = output0Native,
                 widthScale = 1f / Width,
                 heightScale = 1f / Height,
                 probThreshold = prob_threshold,
@@ -196,6 +203,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             [ReadOnly]
             public NativeArray<Anchor> anchors;
 
+            // shape: 1,3549,85
             [ReadOnly]
             public NativeArray<float> featBlob;
 
