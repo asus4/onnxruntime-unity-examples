@@ -78,6 +78,7 @@ public class Yolo11SegSample : MonoBehaviour
         {
             source.OnTexture.RemoveListener(OnTexture);
         }
+
         inference?.Dispose();
         prevSegmentationTexture = null;
     }
@@ -123,7 +124,15 @@ public class Yolo11SegSample : MonoBehaviour
 
     private async Awaitable RunAsync(Texture texture, CancellationToken cancellationToken)
     {
-        await inference.RunAsync(texture, cancellationToken);
+        try
+        {
+            await inference.RunAsync(texture, cancellationToken);
+        }
+        catch (OperationCanceledException e)
+        {
+            Debug.LogWarning(e);
+            return;
+        }
         await Awaitable.MainThreadAsync();
 
         UpdateDetectionBox(inference.Detections);

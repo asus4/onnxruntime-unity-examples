@@ -1,4 +1,5 @@
 using System.Text;
+using System.Threading;
 using Microsoft.ML.OnnxRuntime.Unity;
 using Microsoft.ML.OnnxRuntime.Examples;
 using TextureSource;
@@ -29,6 +30,7 @@ public sealed class MobileOneSample : MonoBehaviour
     public TextUnityEvent onDebugTopK;
 
     readonly StringBuilder sb = new();
+    Awaitable currentAwaitable = null;
 
     void Start()
     {
@@ -54,7 +56,15 @@ public sealed class MobileOneSample : MonoBehaviour
 
     public void OnTexture(Texture texture)
     {
-        if (!runBackground)
+        if (runBackground)
+        {
+            bool isNextAvailable = currentAwaitable == null || currentAwaitable.IsCompleted;
+            if (isNextAvailable)
+            {
+                currentAwaitable = RunAsync(texture, destroyCancellationToken);
+            }
+        }
+        else
         {
             Run(texture);
         }
@@ -63,6 +73,13 @@ public sealed class MobileOneSample : MonoBehaviour
     void Run(Texture texture)
     {
         inference?.Run(texture);
+        ShowLabels();
+    }
+
+    async Awaitable RunAsync(Texture texture, CancellationToken cancellationToken)
+    {
+        await inference.RunAsync(texture, cancellationToken);
+        await Awaitable.MainThreadAsync();
         ShowLabels();
     }
 
