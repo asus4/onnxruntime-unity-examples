@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using Microsoft.ML.OnnxRuntime.Unity;
 using Microsoft.ML.OnnxRuntime.UnityEx;
+using Unity.Burst;
 using Unity.Collections;
+using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Profiling;
 using UnityEngine;
@@ -75,7 +77,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                 this.stride = stride;
             }
 
-            public static Anchor[] GenerateAnchors(int width, int height)
+            public static NativeArray<Anchor> GenerateAnchors(int width, int height, Allocator allocator)
             {
                 ReadOnlySpan<int> strides = stackalloc int[] { 8, 16, 32 };
                 List<Anchor> anchors = new();
@@ -92,13 +94,14 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                         }
                     }
                 }
-                return anchors.ToArray();
+
+                return new NativeArray<Anchor>(anchors.ToArray(), allocator);
             }
         }
 
         public readonly ReadOnlyCollection<string> labelNames;
         private const int NUM_CLASSES = 80;
-        private readonly Anchor[] anchors;
+        private readonly NativeArray<Anchor> anchors;
         private readonly Options options;
 
         private NativeList<Detection> proposalsList;
@@ -116,13 +119,15 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             this.options = options;
 
             const int maxDetections = 100;
-            proposalsList = new NativeList<Detection>(maxDetections, Allocator.Persistent);
-            detectionsList = new NativeList<Detection>(maxDetections, Allocator.Persistent);
+            const Allocator allocator = Allocator.Persistent;
+
+            proposalsList = new NativeList<Detection>(maxDetections, allocator);
+            detectionsList = new NativeList<Detection>(maxDetections, allocator);
 
             var labels = options.labelFile.text.Split('\n', StringSplitOptions.RemoveEmptyEntries);
             labelNames = Array.AsReadOnly(labels);
             Assert.AreEqual(NUM_CLASSES, labelNames.Count);
-            anchors = Anchor.GenerateAnchors(Width, Height);
+            anchors = Anchor.GenerateAnchors(Width, Height, allocator);
         }
 
         protected override void Dispose(bool disposing)
@@ -131,6 +136,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             {
                 proposalsList.Dispose();
                 detectionsList.Dispose();
+                anchors.Dispose();
             }
             base.Dispose(disposing);
         }
@@ -161,33 +167,59 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             return new Rect(min, max - min);
         }
 
-        // TODO: consider using Burst
         private void GenerateProposals(
             in ReadOnlySpan<float> feat_blob,
             NativeList<Detection> result,
-             float prob_threshold)
+            float prob_threshold)
         {
-            int num_anchors = anchors.Length;
-
-            float widthScale = 1f / Width;
-            float heightScale = 1f / Height;
-
             result.Clear();
 
-            for (int anchor_idx = 0; anchor_idx < num_anchors; anchor_idx++)
+            // TODO: Consider using unsafe NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray instead of copying
+            using var featBlobNative = new NativeArray<float>(
+                feat_blob.ToArray(), Allocator.TempJob);
+
+            var job = new GenerateProposalsJob
             {
-                var anchor = anchors[anchor_idx];
+                anchors = anchors,
+                featBlob = featBlobNative,
+                widthScale = 1f / Width,
+                heightScale = 1f / Height,
+                probThreshold = prob_threshold,
+                proposals = result.AsParallelWriter()
+            };
+            job.Schedule(anchors.Length, 64).Complete();
+        }
+
+        [BurstCompile]
+        private struct GenerateProposalsJob : IJobParallelFor
+        {
+            [ReadOnly]
+            public NativeArray<Anchor> anchors;
+
+            [ReadOnly]
+            public NativeArray<float> featBlob;
+
+            public float widthScale;
+            public float heightScale;
+            public float probThreshold;
+
+            [WriteOnly]
+            public NativeList<Detection>.ParallelWriter proposals;
+
+            public void Execute(int anchorId)
+            {
+                var anchor = anchors[anchorId];
                 int grid0 = anchor.grid0;
                 int grid1 = anchor.grid1;
                 int stride = anchor.stride;
 
-                int basic_pos = anchor_idx * (NUM_CLASSES + 5);
+                int basic_pos = anchorId * (NUM_CLASSES + 5);
 
                 // yolox/models/yolo_head.py decode logic
-                float x_center = (feat_blob[basic_pos + 0] + grid0) * stride;
-                float y_center = (feat_blob[basic_pos + 1] + grid1) * stride;
-                float w = math.exp(feat_blob[basic_pos + 2]) * stride;
-                float h = math.exp(feat_blob[basic_pos + 3]) * stride;
+                float x_center = (featBlob[basic_pos + 0] + grid0) * stride;
+                float y_center = (featBlob[basic_pos + 1] + grid1) * stride;
+                float w = math.exp(featBlob[basic_pos + 2]) * stride;
+                float h = math.exp(featBlob[basic_pos + 3]) * stride;
                 // Normalize model space to 0..1
                 x_center *= widthScale;
                 y_center *= heightScale;
@@ -197,21 +229,21 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                 // Skip if out of bounds
                 if (x_center < 0 || x_center > 1 || y_center < 0 || y_center > 1)
                 {
-                    continue;
+                    return;
                 }
 
                 float x0 = x_center - w * 0.5f;
                 float y0 = y_center - h * 0.5f;
 
-                float box_objectness = feat_blob[basic_pos + 4];
+                float box_objectness = featBlob[basic_pos + 4];
                 for (int class_idx = 0; class_idx < NUM_CLASSES; class_idx++)
                 {
-                    float box_cls_score = feat_blob[basic_pos + 5 + class_idx];
+                    float box_cls_score = featBlob[basic_pos + 5 + class_idx];
                     float box_prob = box_objectness * box_cls_score;
-                    if (box_prob > prob_threshold)
+                    if (box_prob > probThreshold)
                     {
                         // Insert with sorted descent order
-                        result.Add(new Detection(
+                        proposals.AddNoResize(new Detection(
                             new Rect(x0, y0, w, h),
                             class_idx,
                             box_prob
