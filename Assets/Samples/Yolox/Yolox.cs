@@ -108,7 +108,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         private NativeList<Detection> proposalsList;
         private NativeList<Detection> detectionsList;
 
-        public NativeArray<Detection>.ReadOnly Detections => detectionsList.AsReadOnly();
+        public ReadOnlySpan<Detection> Detections => detectionsList.AsReadOnly();
 
 
         static readonly ProfilerMarker generateProposalsMarker = new($"{typeof(Yolox).Name}.GenerateProposals");
@@ -148,11 +148,12 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             var output0 = outputs[0].GetTensorDataAsSpan<float>();
 
             generateProposalsMarker.Begin();
-            GenerateProposals(output0, proposalsList, options.probThreshold);
+            var handle = GenerateProposals(output0, proposalsList, options.probThreshold);
+            handle.Complete();
             generateProposalsMarker.End();
 
             proposalsList.Sort();
-            IDetection<Detection>.NMS(proposalsList.AsArray(), detectionsList, options.nmsThreshold);
+            IDetection<Detection>.NMS(proposalsList, detectionsList, options.nmsThreshold);
         }
 
         /// <summary>
@@ -169,7 +170,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             return new Rect(min, max - min);
         }
 
-        private void GenerateProposals(
+        private JobHandle GenerateProposals(
             in ReadOnlySpan<float> feat_blob,
             NativeList<Detection> result,
             float prob_threshold)
@@ -194,7 +195,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                 probThreshold = prob_threshold,
                 proposals = result.AsParallelWriter()
             };
-            job.Schedule(anchors.Length, 64).Complete();
+            return job.Schedule(anchors.Length, 64);
         }
 
         [BurstCompile]

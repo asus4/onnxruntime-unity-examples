@@ -212,7 +212,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
 
             // Run Non-Maximum Suppression
             proposalList.Sort();
-            IDetection<Detection>.NMS(proposalList.AsArray(), detectionList, options.nmsThreshold);
+            IDetection<Detection>.NMS(proposalList, detectionList, options.nmsThreshold);
 
             segmentationMarker.Begin();
             // [0] 1(batch), 8400(anchor), 116(data)
