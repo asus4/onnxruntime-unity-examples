@@ -884,7 +884,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0eecfe13fb2b94f31bb7cd7242868d92, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  model: {fileID: 1840921532545725537, guid: 176abe3e48a014970a2254af0a9392e3, type: 3}
+  model: {fileID: 0}
+  modelFile:
+    url: https://github.com/asus4/onnxruntime-unity-examples/releases/download/v0.2.7/rtdetrv2_r18vd_120e_coco_rerun.onnx
+    downloadLocation: 0
   options:
     aspectMode: 0
     mean: {x: 0, y: 0, z: 0}

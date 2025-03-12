@@ -19,6 +19,9 @@ public class RtDetrSample : MonoBehaviour
     private OrtAsset model;
 
     [SerializeField]
+    private RemoteFile modelFile = new("https://github.com/asus4/onnxruntime-unity-examples/releases/download/v0.2.7/rtdetrv2_r18vd_120e_coco_rerun.onnx");
+
+    [SerializeField]
     private RtDetr.Options options;
 
     [Header("Visualization Options")]
@@ -35,9 +38,12 @@ public class RtDetrSample : MonoBehaviour
     private TMPro.TMP_Text[] detectionBoxes;
     private readonly StringBuilder sb = new();
 
-    private void Start()
+    private async void Start()
     {
-        inference = new RtDetr(model.bytes, options);
+        byte[] onnxFile = model != null
+            ? model.bytes
+            : await modelFile.Load(destroyCancellationToken);
+        inference = new RtDetr(onnxFile, options);
 
         detectionBoxes = new TMPro.TMP_Text[maxDetections];
         for (int i = 0; i < maxDetections; i++)
@@ -77,8 +83,6 @@ public class RtDetrSample : MonoBehaviour
 
     private void UpdateDetectionBox(ReadOnlySpan<RtDetr.Detection> detections)
     {
-        Debug.Log($"Detected {detections.Length} objects");
-
         var labels = inference.labelNames;
         Vector2 viewportSize = detectionContainer.rect.size;
 
