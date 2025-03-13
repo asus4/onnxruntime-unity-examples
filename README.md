@@ -36,6 +36,7 @@ The following demos are available:
 
 - [MobileOne](https://github.com/apple/ml-mobileone): Image classification
 - [Yolox](https://github.com/Megvii-BaseDetection/YOLOX): Object detection
+- [RT-DETRv2](https://github.com/lyuwenyu/RT-DETR): Object detection
 - [NanoSAM](https://github.com/NVIDIA-AI-IOT/nanosam/): Object Segmentation
 - [Yolo11-Seg](https://github.com/ultralytics/ultralytics/tree/main/examples/YOLOv8-Segmentation-ONNXRuntime-Python): Object detection and segmentation
 
