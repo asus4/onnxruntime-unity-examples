@@ -155,6 +155,20 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             base.Dispose(disposing);
         }
 
+        /// <summary>
+        ///  Convert CV rect to Viewport space
+        /// </summary>
+        /// <param name="rect">A Normalized Rect, input should be 0 - 1</param>
+        /// <returns></returns>
+        public Rect ConvertToViewport(in Rect rect)
+        {
+            Rect unityRect = rect.FlipY();
+            var mtx = InputToViewportMatrix;
+            Vector2 min = mtx.MultiplyPoint3x4(unityRect.min);
+            Vector2 max = mtx.MultiplyPoint3x4(unityRect.max);
+            return new Rect(min, max - min);
+        }
+
         protected override void PreProcess(Texture texture)
         {
             if (isDynamicInputShape)
@@ -251,63 +265,35 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             Assert.AreEqual(2, outputs.Count);
 
             // Output 0
+            var info0 = outputs[0].GetTensorTypeAndShape();
+            Assert.AreEqual(3, info0.DimensionsCount);
+            int3 shape0 = new((int)info0.Shape[0], (int)info0.Shape[1], (int)info0.Shape[2]);
+            if (!shape0.Equals(this.output0Shape))
             {
-                var info = outputs[0].GetTensorTypeAndShape();
-                Assert.AreEqual(3, info.DimensionsCount);
-                int3 shape = new((int)info.Shape[0], (int)info.Shape[1], (int)info.Shape[2]);
-                if (shape.Equals(this.output0Shape))
-                {
-                    return;
-                }
-                this.output0Shape = shape;
-                Debug.Log($"New Output 0 shape: {shape}");
+                output0Shape = shape0;
+                Debug.Log($"New Output 0 shape: {shape0}");
 
-                if (output0Transposed.IsCreated)
-                {
-                    output0Transposed.Dispose();
-                }
-                output0Transposed = new NativeArray<float>((int)info.ElementCount, Allocator.Persistent);
+                output0Transposed.Dispose();
+                output0Transposed = new NativeArray<float>((int)info0.ElementCount, Allocator.Persistent);
 
-                if (proposalList.IsCreated)
-                {
-                    proposalList.Dispose();
-                }
-                proposalList = new NativeList<Detection>(shape.z, Allocator.Persistent);
-                if (detectionList.IsCreated)
-                {
-                    detectionList.Dispose();
-                }
+                proposalList.Dispose();
+                proposalList = new NativeList<Detection>(shape0.z, Allocator.Persistent);
+
+                detectionList.Dispose();
                 detectionList = new NativeList<Detection>(options.maxDetectionCount, Allocator.Persistent);
             }
 
             // Output 1
+            var info1 = outputs[1].GetTensorTypeAndShape();
+            Assert.AreEqual(4, info1.DimensionsCount);
+            int3 shape1 = new((int)info1.Shape[1], (int)info1.Shape[2], (int)info1.Shape[3]);
+
+            if (segmentation == null || !segmentation.shape.Equals(shape1))
             {
-                var info = outputs[1].GetTensorTypeAndShape();
-                Assert.AreEqual(4, info.DimensionsCount);
-                var shape = new int3((int)info.Shape[1], (int)info.Shape[2], (int)info.Shape[3]);
-
-                if (segmentation != null && segmentation.shape.Equals(shape))
-                {
-                    return;
-                }
-                Debug.Log($"New Output 1 shape: {shape}");
+                Debug.Log($"New Output 1 shape: {shape1}");
                 segmentation?.Dispose();
-                segmentation = new Yolo11SegVisualize(shape, Colors, options);
+                segmentation = new Yolo11SegVisualize(shape1, Colors, options);
             }
-        }
-
-        /// <summary>
-        ///  Convert CV rect to Viewport space
-        /// </summary>
-        /// <param name="rect">A Normalized Rect, input should be 0 - 1</param>
-        /// <returns></returns>
-        public Rect ConvertToViewport(in Rect rect)
-        {
-            Rect unityRect = rect.FlipY();
-            var mtx = InputToViewportMatrix;
-            Vector2 min = mtx.MultiplyPoint3x4(unityRect.min);
-            Vector2 max = mtx.MultiplyPoint3x4(unityRect.max);
-            return new Rect(min, max - min);
         }
 
         private JobHandle ScheduleGenerateProposalsJob(ReadOnlySpan<float> tensor, NativeList<Detection> proposals, float confidenceThreshold)
@@ -377,7 +363,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                 float y = cy - h * 0.5f;
 
                 proposals.AddNoResize(new Detection(
-                     new Rect(x, y, w, h),
+                    new Rect(x, y, w, h),
                     classId,
                     maxConfidence,
                     anchorId)
