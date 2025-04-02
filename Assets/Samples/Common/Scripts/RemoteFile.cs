@@ -13,7 +13,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
     /// Not for production use.
     /// </summary>
     [Serializable]
-    public class RemoteFile
+    public class RemoteFile : IProgress<float>
     {
         public enum DownloadLocation
         {
@@ -23,6 +23,8 @@ namespace Microsoft.ML.OnnxRuntime.Examples
 
         public string url;
         public DownloadLocation downloadLocation;
+
+        public event Action<float> OnDownloadProgress;
 
         public string LocalPath
         {
@@ -41,6 +43,8 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             }
         }
 
+        public bool HasCache => File.Exists(LocalPath);
+
         public RemoteFile() { }
 
         public RemoteFile(string url, DownloadLocation location = DownloadLocation.Persistent)
@@ -49,41 +53,51 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             downloadLocation = location;
         }
 
-        public async Task<byte[]> Load(CancellationToken cancellationToken)
+        public void Report(float value)
+        {
+            OnDownloadProgress?.Invoke(value);
+        }
+
+        public async Awaitable<byte[]> Load(CancellationToken cancellationToken)
         {
             string localPath = LocalPath;
 
             if (File.Exists(localPath))
             {
                 Log($"Cache Loading file from local: {localPath}");
-                return await LoadFromLocal(localPath, cancellationToken);
+                return await LoadFromLocal(localPath, this, cancellationToken);
             }
             else
             {
                 Log($"Cache not found at {localPath}. Loading from: {url}");
-                return await LoadFromRemote(url, localPath, cancellationToken);
+                return await LoadFromRemote(url, localPath, this, cancellationToken);
             }
         }
 
         // Need to use WebRequest for local file download in Android
-        private static async Task<byte[]> LoadFromLocal(string localPath, CancellationToken cancellationToken)
+        private static async Awaitable<byte[]> LoadFromLocal(string localPath, IProgress<float> progressCallback, CancellationToken cancellationToken)
         {
+            progressCallback?.Report(0.0f);
+
             if (!localPath.StartsWith("file:/"))
             {
                 localPath = $"file://{localPath}";
             }
-            using var request = UnityWebRequest.Get(localPath);
 
+            using var request = UnityWebRequest.Get(localPath);
             var operation = request.SendWebRequest();
             while (!operation.isDone)
             {
+                await Awaitable.NextFrameAsync();
                 if (cancellationToken.IsCancellationRequested)
                 {
                     request.Abort();
                     throw new TaskCanceledException();
                 }
-                await Task.Yield();
+                progressCallback?.Report(operation.progress);
             }
+
+            progressCallback?.Report(1.0f);
 
             if (request.result != UnityWebRequest.Result.Success)
             {
@@ -93,8 +107,10 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             return request.downloadHandler.data;
         }
 
-        private static async Task<byte[]> LoadFromRemote(string remotePath, string localPath, CancellationToken cancellationToken)
+        private static async Awaitable<byte[]> LoadFromRemote(string remotePath, string localPath, IProgress<float> progressCallback, CancellationToken cancellationToken)
         {
+            progressCallback?.Report(0.0f);
+
             using var handler = new DownloadHandlerFile(localPath);
             handler.removeFileOnAbort = true;
             using var request = new UnityWebRequest(remotePath, "GET", handler, null);
@@ -102,13 +118,16 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             var operation = request.SendWebRequest();
             while (!operation.isDone)
             {
+                await Awaitable.NextFrameAsync();
                 if (cancellationToken.IsCancellationRequested)
                 {
                     request.Abort();
                     throw new TaskCanceledException();
                 }
-                await Task.Yield();
+                progressCallback?.Report(operation.progress);
             }
+
+            progressCallback?.Report(1.0f);
 
             if (request.result != UnityWebRequest.Result.Success)
             {

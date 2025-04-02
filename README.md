@@ -4,7 +4,7 @@
 
 Examples of [ONNX Runtime Unity Plugin](https://github.com/asus4/onnxruntime-unity).
 
-**Yolox-Nano** 
+**Yolox-Nano**  
 
 <https://github.com/asus4/onnxruntime-unity-examples/assets/357497/96ed9913-41b7-401d-a634-f0e2de4fc3c7>
 
@@ -12,13 +12,13 @@ Examples of [ONNX Runtime Unity Plugin](https://github.com/asus4/onnxruntime-uni
 
 <https://github.com/asus4/onnxruntime-unity-examples/assets/357497/5e2b8712-87cc-4a3a-82b7-f217087a0ed1>
 
-**Yolo11 Seg**
+**Yolo11 Seg**  
 
 <https://github.com/user-attachments/assets/93c3dccd-569c-4a93-826b-0c9b5b60ebe9>
 
 ## Tested environment
 
-- Unity: 2022.3.20f1 (LTS)
+- Unity: 6000.0.43f1 (LTS)
 - ONNX Runtime: 1.20.0
 - macOS, iOS, Android, Windows, Linux.
   - Complete List for [:link: Supported Execution Providers](https://github.com/asus4/onnxruntime-unity?tab=readme-ov-file#execution-providers)
