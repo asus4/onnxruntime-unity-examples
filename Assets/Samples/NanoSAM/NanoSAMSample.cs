@@ -1,5 +1,7 @@
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Microsoft.ML.OnnxRuntime.Examples;
+using Microsoft.ML.OnnxRuntime.Unity;
 using TextureSource;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -54,10 +56,11 @@ public sealed class NanoSAMSample : MonoBehaviour
 
         // Load model files, this will take some time at first run
         var token = destroyCancellationToken;
-        byte[] encoderModel = await encoderModelFile.Load(token);
-        byte[] decoderModel = await decoderModelFile.Load(token);
-
-        inference = new NanoSAM(encoderModel, decoderModel, options);
+        var result = await Task.WhenAll(
+            encoderModelFile.Load(token).AsTask(),
+            decoderModelFile.Load(token).AsTask()
+        );
+        inference = new NanoSAM(result[0], result[1], options);
         visualizer = GetComponent<NanoSAMVisualizer>();
 
         // Register pointer down event to preview rect
