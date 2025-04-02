@@ -22,7 +22,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         }
 
         public string url;
-        public DownloadLocation downloadLocation;
+        public DownloadLocation downloadLocation = DownloadLocation.Persistent;
 
         public event Action<float> OnDownloadProgress;
 
@@ -53,6 +53,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             downloadLocation = location;
         }
 
+        // IProgress<float>
         public void Report(float value)
         {
             OnDownloadProgress?.Invoke(value);
@@ -62,29 +63,32 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         {
             string localPath = LocalPath;
 
-            if (File.Exists(localPath))
+            if (HasCache)
             {
                 Log($"Cache Loading file from local: {localPath}");
-                return await LoadFromLocal(localPath, this, cancellationToken);
+                using var handler = new DownloadHandlerBuffer();
+                if (!localPath.StartsWith("file:/"))
+                {
+                    localPath = $"file://{localPath}";
+                }
+                using var request = new UnityWebRequest(url, "GET", handler, null);
+                await LoadWithProgress(request, this, cancellationToken);
+                return handler.data;
             }
             else
             {
                 Log($"Cache not found at {localPath}. Loading from: {url}");
-                return await LoadFromRemote(url, localPath, this, cancellationToken);
+                using var handler = new DownloadHandlerFile(localPath);
+                handler.removeFileOnAbort = true;
+                using var request = new UnityWebRequest(url, "GET", handler, null);
+                await LoadWithProgress(request, this, cancellationToken);
+                return await File.ReadAllBytesAsync(localPath, cancellationToken);
             }
         }
 
-        // Need to use WebRequest for local file download in Android
-        private static async Awaitable<byte[]> LoadFromLocal(string localPath, IProgress<float> progressCallback, CancellationToken cancellationToken)
+        static async Awaitable LoadWithProgress(UnityWebRequest request, IProgress<float> progress, CancellationToken cancellationToken)
         {
-            progressCallback?.Report(0.0f);
-
-            if (!localPath.StartsWith("file:/"))
-            {
-                localPath = $"file://{localPath}";
-            }
-
-            using var request = UnityWebRequest.Get(localPath);
+            progress.Report(0.0f);
             var operation = request.SendWebRequest();
             while (!operation.isDone)
             {
@@ -94,51 +98,19 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                     request.Abort();
                     throw new TaskCanceledException();
                 }
-                progressCallback?.Report(operation.progress);
+                progress.Report(operation.progress);
             }
 
-            progressCallback?.Report(1.0f);
-
-            if (request.result != UnityWebRequest.Result.Success)
-            {
-                throw new Exception($"Failed to download {localPath}: {request.error}");
-            }
-
-            return request.downloadHandler.data;
-        }
-
-        private static async Awaitable<byte[]> LoadFromRemote(string remotePath, string localPath, IProgress<float> progressCallback, CancellationToken cancellationToken)
-        {
-            progressCallback?.Report(0.0f);
-
-            using var handler = new DownloadHandlerFile(localPath);
-            handler.removeFileOnAbort = true;
-            using var request = new UnityWebRequest(remotePath, "GET", handler, null);
-
-            var operation = request.SendWebRequest();
-            while (!operation.isDone)
-            {
-                await Awaitable.NextFrameAsync();
-                if (cancellationToken.IsCancellationRequested)
-                {
-                    request.Abort();
-                    throw new TaskCanceledException();
-                }
-                progressCallback?.Report(operation.progress);
-            }
-
-            progressCallback?.Report(1.0f);
+            progress.Report(1.0f);
 
             if (request.result != UnityWebRequest.Result.Success)
             {
                 request.Abort();
-                throw new Exception($"Failed to download {remotePath}: {request.error}");
+                throw new Exception($"Failed to download {request.downloadProgress}: {request.error}");
             }
-
-            return File.ReadAllBytes(localPath);
         }
 
-        private static string GetExtension(string url)
+        static string GetExtension(string url)
         {
             string ext = Path.GetExtension(url);
             if (ext.Contains('?'))
@@ -149,7 +121,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         }
 
         [Conditional("DEVELOPMENT_BUILD"), Conditional("UNITY_EDITOR")]
-        private static void Log(string message)
+        static void Log(string message)
         {
             UnityEngine.Debug.Log(message);
         }
