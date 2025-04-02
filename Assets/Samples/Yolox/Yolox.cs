@@ -153,7 +153,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             generateProposalsMarker.End();
 
             proposalsList.Sort();
-            IDetection<Detection>.NMS(proposalsList, detectionsList, options.nmsThreshold);
+            DetectionUtil.NMS(proposalsList, detectionsList, options.nmsThreshold);
         }
 
         /// <summary>
