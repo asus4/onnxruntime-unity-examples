@@ -1,18 +1,18 @@
 {
   "dependencies": {
     "com.github.asus4.onnxruntime": {
-      "version": "0.3.1",
+      "version": "0.3.2",
       "depth": 0,
       "source": "registry",
       "dependencies": {},
       "url": "https://registry.npmjs.com"
     },
     "com.github.asus4.onnxruntime-extensions": {
-      "version": "0.3.1",
+      "version": "0.3.2",
       "depth": 0,
       "source": "registry",
       "dependencies": {
-        "com.github.asus4.onnxruntime": "0.3.1"
+        "com.github.asus4.onnxruntime": "0.3.2"
       },
       "url": "https://registry.npmjs.com"
     },
@@ -26,11 +26,11 @@
       "url": "https://registry.npmjs.com"
     },
     "com.github.asus4.onnxruntime.unity": {
-      "version": "0.3.1",
+      "version": "0.3.2",
       "depth": 0,
       "source": "registry",
       "dependencies": {
-        "com.github.asus4.onnxruntime": "0.3.1"
+        "com.github.asus4.onnxruntime": "0.3.2"
       },
       "url": "https://registry.npmjs.com"
     },
@@ -44,7 +44,7 @@
       "url": "https://registry.npmjs.com"
     },
     "com.github.asus4.texture-source": {
-      "version": "0.3.2",
+      "version": "0.3.4",
       "depth": 0,
       "source": "registry",
       "dependencies": {
@@ -89,7 +89,7 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.ide.visualstudio": {
-      "version": "2.0.22",
+      "version": "2.0.23",
       "depth": 0,
       "source": "registry",
       "dependencies": {
