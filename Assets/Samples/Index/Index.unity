@@ -399,6 +399,7 @@ MonoBehaviour:
   - NanoSAM
   - Yolo11Seg
   - UnitTestAdd
+  - Phi4Multimodal
 --- !u!4 &557997006
 Transform:
   m_ObjectHideFlags: 0
