@@ -25,39 +25,6 @@ namespace Microsoft.ML.OnnxRuntime.Examples
     /// </summary>
     public sealed class Phi4MultiModal : IDisposable
     {
-        [Serializable]
-        public class Options
-        {
-            [field: SerializeField]
-            public string ModelPath { get; private set; } = string.Empty;
-
-            [field: SerializeField]
-            public string ProviderName { get; private set; } = string.Empty;
-
-
-            public bool TryGetModelPath(out string path)
-            {
-                // Check Path is valid
-                path = ModelPath;
-                if (string.IsNullOrWhiteSpace(path))
-                {
-                    path = string.Empty;
-                    return false;
-                }
-                if (!Path.IsPathRooted(path))
-                {
-                    // Assuming the directory is in the StreamingAssets folder
-                    path = Path.Combine(Application.streamingAssetsPath, path);
-                }
-                if (!Directory.Exists(path))
-                {
-                    path = string.Empty;
-                    return false;
-                }
-                return true;
-            }
-        }
-
         readonly Config config;
         readonly Model model;
         readonly Tokenizer tokenizer;
@@ -70,7 +37,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             // Set ORT_LIB_PATH environment variable to use GenAI
             OrtUnityEnv.InitializeOrtLibPath();
 
-            // Disabling provider for testing
+            // FIXME: Disabling provider for testing
             provider = string.Empty;
             if (string.IsNullOrWhiteSpace(provider))
             {
@@ -115,7 +82,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             disposed = true;
         }
 
-        public static async Awaitable<Phi4MultiModal> InitAsync(Options options, CancellationToken cancellationToken)
+        public static async Awaitable<Phi4MultiModal> InitAsync(string modelPath, string providerName, CancellationToken cancellationToken)
         {
             if (Debug.isDebugBuild)
             {
@@ -123,7 +90,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                 Environment.SetEnvironmentVariable("ORTGENAI_LOG_ORT_LIB", "1");
             }
 
-            if (!options.TryGetModelPath(out var modelPath))
+            if (!Directory.Exists(modelPath))
             {
                 string msg = $"Model not found at {modelPath}, download it from HuggingFace https://huggingface.co/microsoft";
                 Debug.LogError(msg);
@@ -137,7 +104,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             Phi4MultiModal instance = null;
             try
             {
-                instance = new Phi4MultiModal(modelPath, options.ProviderName);
+                instance = new Phi4MultiModal(modelPath, providerName);
             }
             catch (Exception ex)
             {

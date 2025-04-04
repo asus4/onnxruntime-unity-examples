@@ -1,15 +1,65 @@
 using System;
-using Microsoft.ML.OnnxRuntime.Examples;
-using UnityEngine;
-using TMPro;
-using UnityEngine.UI;
+using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading;
+using Microsoft.ML.OnnxRuntime.Examples;
+using TMPro;
+using UnityEngine;
+using UnityEngine.UI;
 
 public class Phi4MultiModalSample : MonoBehaviour
 {
+    public enum PathType
+    {
+        Absolute,
+        Data,
+        Persistent,
+        TemporaryCache,
+        StreamingAssets,
+    }
+
+    [Serializable]
+    public class Options
+    {
+        public RuntimePlatform[] platforms = { RuntimePlatform.OSXEditor, RuntimePlatform.OSXPlayer };
+        public PathType pathType = PathType.Absolute;
+        public string modelPath = string.Empty;
+        public string providerName = string.Empty;
+
+        public virtual bool TryGetModelPath(out string path)
+        {
+            // Check Path is valid
+            path = modelPath;
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return false;
+            }
+
+            if (!Path.IsPathRooted(path))
+            {
+                // Assuming the directory
+                path = pathType switch
+                {
+                    PathType.Absolute => path,
+                    PathType.Data => Path.Combine(Application.dataPath, path),
+                    PathType.Persistent => Path.Combine(Application.persistentDataPath, path),
+                    PathType.TemporaryCache => Path.Combine(Application.temporaryCachePath, path),
+                    PathType.StreamingAssets => Path.Combine(Application.streamingAssetsPath, path),
+                    _ => throw new NotImplementedException($"PathType {pathType} is not implemented"),
+                };
+            }
+
+            if (!Directory.Exists(path))
+            {
+                return false;
+            }
+            return true;
+        }
+    }
+
     [SerializeField]
-    Phi4MultiModal.Options options;
+    Options[] platformOptions = { };
 
     [SerializeField]
     TMP_Text label;
@@ -25,20 +75,29 @@ public class Phi4MultiModalSample : MonoBehaviour
 
     async Awaitable Start()
     {
-        if (Application.isMobilePlatform)
+        ToggleButton(false);
+
+        // Find options for this platform
+        RuntimePlatform platform = Application.platform;
+        var options = platformOptions.FirstOrDefault(o => o.platforms.Contains(platform));
+        if (options == null)
         {
-            Debug.LogError("Phi4MultiModal is not supported on mobile yet.");
-            UpdateLabel("Phi4MultiModal is not supported on mobile yet.", true, true);
-            ToggleButton(false);
+            Debug.LogError($"Platform {platform} not supported.");
+            return;
+        }
+        if (!options.TryGetModelPath(out var modelPath))
+        {
+            string msg = $"Model not found at {modelPath}, download it from HuggingFace https://huggingface.co/microsoft";
+            Debug.LogError(msg);
             return;
         }
 
-        ToggleButton(false);
+        // Initialize the model
         UpdateLabel("Now loading LLM model. wait a bit...");
-
         try
         {
-            inference = await Phi4MultiModal.InitAsync(options, destroyCancellationToken);
+            string providerName = options.providerName;
+            inference = await Phi4MultiModal.InitAsync(modelPath, providerName, destroyCancellationToken);
         }
         catch (Exception ex)
         {

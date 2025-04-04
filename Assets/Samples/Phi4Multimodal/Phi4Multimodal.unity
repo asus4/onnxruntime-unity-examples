@@ -1141,11 +1141,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 36b541726c6934694a3db3fd997bcd6f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  options:
-    <ModelPath>k__BackingField: /Users/ibu/Projects/ML/_onnxruntime-models/phi-4-onnx/cpu_and_mobile/cpu-int4-rtn-block-32-acc-level-4
-    <ProviderName>k__BackingField: 
+  platformOptions:
+  - platforms: 0000000001000000
+    pathType: 0
+    modelPath: /Users/ibu/Projects/ML/_onnxruntime-models/phi-4-onnx/cpu_and_mobile/cpu-int4-rtn-block-32-acc-level-4
+    providerName: 
+  - platforms: 08000000
+    pathType: 2
+    modelPath: cpu-int4-rtn-block-32-acc-level-4
+    providerName: 
   label: {fileID: 563389411}
   button: {fileID: 228613119}
+  prompt: What is the capital of France?
 --- !u!1 &1965107666
 GameObject:
   m_ObjectHideFlags: 0
