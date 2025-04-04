@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using Microsoft.ML.OnnxRuntime.Examples;
 using UnityEngine;
 using TMPro;
@@ -17,6 +16,9 @@ public class Phi4MultiModalSample : MonoBehaviour
 
     [SerializeField]
     Button button;
+
+    [SerializeField]
+    string prompt = "What is the capital of France?";
 
     readonly StringBuilder sb = new();
     Phi4MultiModal inference;
@@ -59,7 +61,6 @@ public class Phi4MultiModalSample : MonoBehaviour
 
     async void OnAskButtonClick()
     {
-        string prompt = "What is the capital of France?";
         await Generate(prompt, destroyCancellationToken);
     }
 
