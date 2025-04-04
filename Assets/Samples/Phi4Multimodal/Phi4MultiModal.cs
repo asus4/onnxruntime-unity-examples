@@ -4,16 +4,16 @@
 /// Modified by @asus4
 
 using System;
-using System.Linq;
+using System.Collections.Generic;
+using System.Collections.Concurrent;
+using System.IO;
 using System.Runtime.CompilerServices;
 using System.Threading;
-using Microsoft.ML.OnnxRuntimeGenAI;
-using UnityEngine;
-using Microsoft.ML.OnnxRuntime.Unity;
-using System.Collections.Generic;
-using System.Text;
-using System.Collections.Concurrent;
 using System.Threading.Tasks;
+using Microsoft.ML.OnnxRuntimeGenAI;
+using Microsoft.ML.OnnxRuntime.Unity;
+using UnityEngine;
+
 
 namespace Microsoft.ML.OnnxRuntime.Examples
 {
@@ -33,6 +33,29 @@ namespace Microsoft.ML.OnnxRuntime.Examples
 
             [field: SerializeField]
             public string ProviderName { get; private set; } = string.Empty;
+
+
+            public bool TryGetModelPath(out string path)
+            {
+                // Check Path is valid
+                path = ModelPath;
+                if (string.IsNullOrWhiteSpace(path))
+                {
+                    path = string.Empty;
+                    return false;
+                }
+                if (!Path.IsPathRooted(path))
+                {
+                    // Assuming the directory is in the StreamingAssets folder
+                    path = Path.Combine(Application.streamingAssetsPath, path);
+                }
+                if (!Directory.Exists(path))
+                {
+                    path = string.Empty;
+                    return false;
+                }
+                return true;
+            }
         }
 
         readonly Config config;
@@ -100,6 +123,13 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                 Environment.SetEnvironmentVariable("ORTGENAI_LOG_ORT_LIB", "1");
             }
 
+            if (!options.TryGetModelPath(out var modelPath))
+            {
+                string msg = $"Model not found at {modelPath}, download it from HuggingFace https://huggingface.co/microsoft";
+                Debug.LogError(msg);
+                throw new DirectoryNotFoundException(msg);
+            }
+
             // Run in BG thread to avoid blocking the Unity thread
             await Awaitable.BackgroundThreadAsync();
             cancellationToken.ThrowIfCancellationRequested();
@@ -107,7 +137,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             Phi4MultiModal instance = null;
             try
             {
-                instance = new Phi4MultiModal(options.ModelPath, options.ProviderName);
+                instance = new Phi4MultiModal(modelPath, options.ProviderName);
             }
             catch (Exception ex)
             {
