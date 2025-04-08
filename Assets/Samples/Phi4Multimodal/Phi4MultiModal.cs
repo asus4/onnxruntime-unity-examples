@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.IO;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -29,6 +30,9 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         readonly Model model;
         readonly Tokenizer tokenizer;
 
+        // TODO: Test with all providers
+        // https://github.com/microsoft/onnxruntime-genai/blob/6f70febdde54485726eabebc9b9b17c8806820f0/build.py#L472-L474
+        static readonly string[] supportedProviders = { "cuda", "rocm", "dml" };
 
         bool disposed = false;
 
@@ -37,14 +41,16 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             // Set ORT_LIB_PATH environment variable to use GenAI
             OrtUnityEnv.InitializeOrtLibPath();
 
-            // FIXME: Disabling provider for testing
-            provider = string.Empty;
+            provider = provider.ToLowerInvariant();
+
             if (string.IsNullOrWhiteSpace(provider))
             {
                 model = new Model(modelPath);
             }
-            else
+            // Check if provider is valid
+            else if (supportedProviders.Contains(provider))
             {
+                Debug.Log($"Configuring {provider} provider");
                 // TODO: Test on Windows / Linux
                 config = new Config(modelPath);
                 config.ClearProviders();
@@ -53,6 +59,12 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                 {
                     config.SetProviderOption(provider, "enable_cuda_graph", "0");
                 }
+            }
+            else
+            {
+                string msg = $"Provider: `{provider}` is not supported. Use one of them: {string.Join(", ", supportedProviders)}. Falling back to CPU.";
+                Debug.LogWarning(msg);
+                model = new Model(modelPath);
             }
             tokenizer = new Tokenizer(model);
         }
