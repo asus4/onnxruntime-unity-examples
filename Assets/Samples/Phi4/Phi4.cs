@@ -159,12 +159,14 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             {
                 while (!generator.IsDone())
                 {
+                    if (cancellationToken.IsCancellationRequested) { return; }
                     generator.GenerateNextToken();
+                    if (cancellationToken.IsCancellationRequested) { return; }
                     outputQueue.Enqueue(tokenizerStream.Decode(generator.GetSequence(0)[^1]));
                 }
             }, cancellationToken);
 
-            while (!generateTask.IsCompleted)
+            while (!cancellationToken.IsCancellationRequested && !generateTask.IsCompleted)
             {
                 await Awaitable.NextFrameAsync(cancellationToken);
                 if (outputQueue.TryDequeue(out var response))
