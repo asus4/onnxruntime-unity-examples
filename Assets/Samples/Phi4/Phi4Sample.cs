@@ -8,7 +8,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class Phi4MultiModalSample : MonoBehaviour
+public class Phi4Sample : MonoBehaviour
 {
     public enum PathType
     {
@@ -61,21 +61,25 @@ public class Phi4MultiModalSample : MonoBehaviour
     [SerializeField]
     Options[] platformOptions = { };
 
+    [Header("UI References")]
+
     [SerializeField]
     TMP_Text label;
 
     [SerializeField]
-    Button button;
+    TMP_InputField input;
 
     [SerializeField]
-    string prompt = "What is the capital of France?";
+    Button button;
+
 
     readonly StringBuilder sb = new();
-    Phi4MultiModal inference;
+    Phi4 inference;
 
     async Awaitable Start()
     {
         ToggleButton(false);
+        input.text = "What is the capital of France?";
 
         // Find options for this platform
         RuntimePlatform platform = Application.platform;
@@ -93,20 +97,20 @@ public class Phi4MultiModalSample : MonoBehaviour
         }
 
         // Initialize the model
-        UpdateLabel("Now loading LLM model. wait a bit...");
+        AppendLabel("Now loading LLM model. wait a bit...\n");
         try
         {
             string providerName = options.providerName;
-            inference = await Phi4MultiModal.InitAsync(modelPath, providerName, destroyCancellationToken);
+            inference = await Phi4.InitAsync(modelPath, providerName, destroyCancellationToken);
         }
         catch (Exception ex)
         {
-            UpdateLabel($"Failed to initialize: {ex.Message}");
+            AppendLabel($"Failed to initialize: {ex.Message}\n");
             Debug.LogException(ex);
             return;
         }
 
-        UpdateLabel("Model initialized!");
+        AppendLabel("Model initialized!\n");
         button.onClick.AddListener(OnAskButtonClick);
         ToggleButton(true);
     }
@@ -114,28 +118,37 @@ public class Phi4MultiModalSample : MonoBehaviour
     void OnDestroy()
     {
         button.onClick.RemoveListener(OnAskButtonClick);
+
+        // FIXME: currently crashes when destroyed while streaming
         inference?.Dispose();
         Debug.Log($"Phi4MultiModal disposed");
     }
 
     async void OnAskButtonClick()
     {
+        string prompt = input.text;
+        if (string.IsNullOrWhiteSpace(prompt))
+        {
+            return;
+        }
+
         await Generate(prompt, destroyCancellationToken);
     }
 
     async Awaitable Generate(string prompt, CancellationToken cancellationToken)
     {
         ToggleButton(false);
-        UpdateLabel("Generating...", true, true);
+        sb.Clear();
+        AppendLabel("Generating...\n");
 
         var stream = inference.GenerateStream(prompt, cancellationToken);
         await foreach (var text in stream)
         {
-            UpdateLabel(text, false);
+            AppendLabel(text);
             cancellationToken.ThrowIfCancellationRequested();
         }
-        UpdateLabel("");
-        UpdateLabel("Done!");
+
+        AppendLabel("\nDone!\n");
         ToggleButton(true);
     }
 
@@ -144,21 +157,10 @@ public class Phi4MultiModalSample : MonoBehaviour
         button.gameObject.SetActive(isOn);
     }
 
-    void UpdateLabel(string text, bool isNewLine = true, bool clear = false)
+    void AppendLabel(string text)
     {
-        if (clear)
-        {
-            sb.Clear();
-        }
-        if (isNewLine)
-        {
-            sb.AppendLine(text);
-        }
-        else
-        {
-            sb.Append(text);
-        }
         // Using String Builder to reduce GC
+        sb.Append(text);
         label.SetText(sb);
     }
 }

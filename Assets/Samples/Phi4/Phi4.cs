@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.IO;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,30 +22,35 @@ namespace Microsoft.ML.OnnxRuntime.Examples
     /// PHI4 Multi Model Inference
     /// 
     /// Ported from C# example in GenAI repo
-    /// https://github.com/microsoft/onnxruntime-genai/blob/cb5baa7f5cefa6a8cb804de634280d400d090729/examples/csharp/HelloPhi4MM/Program.cs
+    /// https://github.com/microsoft/onnxruntime-genai/blob/6f70febdde54485726eabebc9b9b17c8806820f0/examples/csharp/HelloPhi3V/Program.cs
     /// </summary>
-    public sealed class Phi4MultiModal : IDisposable
+    public class Phi4 : IDisposable
     {
         readonly Config config;
         readonly Model model;
         readonly Tokenizer tokenizer;
 
+        // TODO: Test with all providers
+        // https://github.com/microsoft/onnxruntime-genai/blob/6f70febdde54485726eabebc9b9b17c8806820f0/build.py#L472-L474
+        static readonly string[] supportedProviders = { "cuda", "rocm", "dml" };
 
         bool disposed = false;
 
-        public Phi4MultiModal(string modelPath, string provider)
+        public Phi4(string modelPath, string provider)
         {
             // Set ORT_LIB_PATH environment variable to use GenAI
             OrtUnityEnv.InitializeOrtLibPath();
 
-            // FIXME: Disabling provider for testing
-            provider = string.Empty;
+            provider = provider.ToLowerInvariant();
+
             if (string.IsNullOrWhiteSpace(provider))
             {
                 model = new Model(modelPath);
             }
-            else
+            // Check if provider is valid
+            else if (supportedProviders.Contains(provider))
             {
+                Debug.Log($"Configuring {provider} provider");
                 // TODO: Test on Windows / Linux
                 config = new Config(modelPath);
                 config.ClearProviders();
@@ -54,10 +60,16 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                     config.SetProviderOption(provider, "enable_cuda_graph", "0");
                 }
             }
+            else
+            {
+                string msg = $"Provider: `{provider}` is not supported. Use one of them: {string.Join(", ", supportedProviders)}. Falling back to CPU.";
+                Debug.LogWarning(msg);
+                model = new Model(modelPath);
+            }
             tokenizer = new Tokenizer(model);
         }
 
-        ~Phi4MultiModal()
+        ~Phi4()
         {
             Dispose(false);
         }
@@ -82,7 +94,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             disposed = true;
         }
 
-        public static async Awaitable<Phi4MultiModal> InitAsync(string modelPath, string providerName, CancellationToken cancellationToken)
+        public static async Awaitable<Phi4> InitAsync(string modelPath, string providerName, CancellationToken cancellationToken)
         {
             if (Debug.isDebugBuild)
             {
@@ -101,10 +113,10 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             await Awaitable.BackgroundThreadAsync();
             cancellationToken.ThrowIfCancellationRequested();
 
-            Phi4MultiModal instance = null;
+            Phi4 instance = null;
             try
             {
-                instance = new Phi4MultiModal(modelPath, providerName);
+                instance = new Phi4(modelPath, providerName);
             }
             catch (Exception ex)
             {
@@ -147,12 +159,14 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             {
                 while (!generator.IsDone())
                 {
+                    if (cancellationToken.IsCancellationRequested) { return; }
                     generator.GenerateNextToken();
+                    if (cancellationToken.IsCancellationRequested) { return; }
                     outputQueue.Enqueue(tokenizerStream.Decode(generator.GetSequence(0)[^1]));
                 }
             }, cancellationToken);
 
-            while (!generateTask.IsCompleted)
+            while (!cancellationToken.IsCancellationRequested && !generateTask.IsCompleted)
             {
                 await Awaitable.NextFrameAsync(cancellationToken);
                 if (outputQueue.TryDequeue(out var response))
