@@ -22,9 +22,9 @@ namespace Microsoft.ML.OnnxRuntime.Examples
     /// PHI4 Multi Model Inference
     /// 
     /// Ported from C# example in GenAI repo
-    /// https://github.com/microsoft/onnxruntime-genai/blob/cb5baa7f5cefa6a8cb804de634280d400d090729/examples/csharp/HelloPhi4MM/Program.cs
+    /// https://github.com/microsoft/onnxruntime-genai/blob/6f70febdde54485726eabebc9b9b17c8806820f0/examples/csharp/HelloPhi3V/Program.cs
     /// </summary>
-    public sealed class Phi4MultiModal : IDisposable
+    public class Phi4 : IDisposable
     {
         readonly Config config;
         readonly Model model;
@@ -36,7 +36,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
 
         bool disposed = false;
 
-        public Phi4MultiModal(string modelPath, string provider)
+        public Phi4(string modelPath, string provider)
         {
             // Set ORT_LIB_PATH environment variable to use GenAI
             OrtUnityEnv.InitializeOrtLibPath();
@@ -69,7 +69,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             tokenizer = new Tokenizer(model);
         }
 
-        ~Phi4MultiModal()
+        ~Phi4()
         {
             Dispose(false);
         }
@@ -94,7 +94,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             disposed = true;
         }
 
-        public static async Awaitable<Phi4MultiModal> InitAsync(string modelPath, string providerName, CancellationToken cancellationToken)
+        public static async Awaitable<Phi4> InitAsync(string modelPath, string providerName, CancellationToken cancellationToken)
         {
             if (Debug.isDebugBuild)
             {
@@ -113,10 +113,10 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             await Awaitable.BackgroundThreadAsync();
             cancellationToken.ThrowIfCancellationRequested();
 
-            Phi4MultiModal instance = null;
+            Phi4 instance = null;
             try
             {
-                instance = new Phi4MultiModal(modelPath, providerName);
+                instance = new Phi4(modelPath, providerName);
             }
             catch (Exception ex)
             {

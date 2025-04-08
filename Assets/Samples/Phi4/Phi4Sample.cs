@@ -8,7 +8,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class Phi4MultiModalSample : MonoBehaviour
+public class Phi4Sample : MonoBehaviour
 {
     public enum PathType
     {
@@ -71,7 +71,7 @@ public class Phi4MultiModalSample : MonoBehaviour
     string prompt = "What is the capital of France?";
 
     readonly StringBuilder sb = new();
-    Phi4MultiModal inference;
+    Phi4 inference;
 
     async Awaitable Start()
     {
@@ -97,7 +97,7 @@ public class Phi4MultiModalSample : MonoBehaviour
         try
         {
             string providerName = options.providerName;
-            inference = await Phi4MultiModal.InitAsync(modelPath, providerName, destroyCancellationToken);
+            inference = await Phi4.InitAsync(modelPath, providerName, destroyCancellationToken);
         }
         catch (Exception ex)
         {
