@@ -18,7 +18,7 @@ Examples of [ONNX Runtime Unity Plugin](https://github.com/asus4/onnxruntime-uni
 
 ## Tested environment
 
-- Unity: 6000.0.43f1 (LTS)
+- Unity: 6000.0.58f2 (LTS)
 - ONNX Runtime: 1.21.0
 - macOS, iOS, Android, Windows, Linux.
   - Complete List for [:link: Supported Execution Providers](https://github.com/asus4/onnxruntime-unity?tab=readme-ov-file#execution-providers)
