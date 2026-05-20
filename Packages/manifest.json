@@ -6,15 +6,19 @@
       "scopes": [
         "com.github.asus4"
       ]
+    },
+    {
+      "name": "package.openupm.com",
+      "url": "https://package.openupm.com",
+      "scopes": [
+        "com.github-glitchenzo.nugetforunity"
+      ]
     }
   ],
   "dependencies": {
-    "com.github.asus4.onnxruntime": "0.4.6",
-    "com.github.asus4.onnxruntime-extensions": "0.4.6",
-    "com.github.asus4.onnxruntime-genai": "0.4.6",
-    "com.github.asus4.onnxruntime.linux-x64-gpu": "0.2.1",
-    "com.github.asus4.onnxruntime.unity": "0.4.6",
-    "com.github.asus4.onnxruntime.win-x64-gpu": "0.2.1",
+    "com.github.asus4.onnxruntime": "file:../../onnxruntime-unity/com.github.asus4.onnxruntime",
+    "com.github.asus4.onnxruntime-genai": "file:../../onnxruntime-unity/com.github.asus4.onnxruntime-genai",
+    "com.github.asus4.onnxruntime.unity": "file:../../onnxruntime-unity/com.github.asus4.onnxruntime.unity",
     "com.github.asus4.texture-source": "0.3.6",
     "com.unity.2d.sprite": "1.0.0",
     "com.unity.collections": "2.6.6",
@@ -27,6 +31,7 @@
     "com.unity.modules.jsonserialize": "1.0.0",
     "com.unity.modules.ui": "1.0.0",
     "com.unity.modules.unitywebrequest": "1.0.0",
-    "com.unity.modules.video": "1.0.0"
+    "com.unity.modules.video": "1.0.0",
+    "com.github-glitchenzo.nugetforunity": "4.5.0"
   }
 }
