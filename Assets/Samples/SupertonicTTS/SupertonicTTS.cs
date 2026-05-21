@@ -1,66 +1,21 @@
-/// Unity wrapper around the Supertonic TTS pipeline.
-/// See Helper.cs for the upstream MIT license (Copyright (c) 2025 Supertone Inc.).
-
 using System;
 using System.Collections.Generic;
-using System.IO;
+using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.ML.OnnxRuntime.Examples.Supertonic;
+using Microsoft.ML.OnnxRuntime.Unity;
 using UnityEngine;
 
 namespace Microsoft.ML.OnnxRuntime.Examples
 {
     /// <summary>
-    /// Supertonic Text-To-Speech inference for Unity.
-    ///
-    /// Expects a directory layout matching https://huggingface.co/Supertone/supertonic-3 :
-    ///   <modelDir>/onnx/{duration_predictor,text_encoder,vector_estimator,vocoder}.onnx
-    ///   <modelDir>/onnx/{tts.json,unicode_indexer.json}
-    ///   <modelDir>/voice_styles/{M1..M5,F1..F5}.json
+    /// Supertonic Text-To-Speech
     /// </summary>
     public sealed class SupertonicTTS : IDisposable
     {
-
-        public enum PathType
-        {
-            Absolute,
-            Data,
-            Persistent,
-            TemporaryCache,
-            StreamingAssets,
-        }
-
-        [Serializable]
-        public class Options
-        {
-            public RuntimePlatform[] platforms = { RuntimePlatform.OSXEditor, RuntimePlatform.OSXPlayer };
-            public PathType pathType = PathType.Absolute;
-            public string modelPath = string.Empty;
-
-            public virtual bool TryGetModelPath(out string path)
-            {
-                path = modelPath;
-                if (string.IsNullOrWhiteSpace(path))
-                {
-                    return false;
-                }
-
-                if (!Path.IsPathRooted(path))
-                {
-                    path = pathType switch
-                    {
-                        PathType.Absolute => path,
-                        PathType.Data => Path.Combine(Application.dataPath, path),
-                        PathType.Persistent => Path.Combine(Application.persistentDataPath, path),
-                        PathType.TemporaryCache => Path.Combine(Application.temporaryCachePath, path),
-                        PathType.StreamingAssets => Path.Combine(Application.streamingAssetsPath, path),
-                        _ => throw new NotImplementedException($"PathType {pathType} is not implemented"),
-                    };
-                }
-
-                return Directory.Exists(path);
-            }
-        }
+        // Downloads the model assets from HuggingFace
+        const string ModelBaseUrl = "https://huggingface.co/Supertone/supertonic-3/resolve/main/";
 
         public static readonly string[] VoiceIds = { "M1", "M2", "M3", "M4", "M5", "F1", "F2", "F3", "F4", "F5" };
 
@@ -89,36 +44,78 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             disposed = true;
         }
 
-        public static async Awaitable<SupertonicTTS> InitAsync(string modelDir, CancellationToken cancellationToken)
+        /// <summary>
+        /// Initializes the TTS pipeline.
+        /// On first call this downloads ~400MB assets in parallel.
+        /// </summary>
+        public static async Awaitable<SupertonicTTS> InitAsync(
+            IProgress<float> progress,
+            CancellationToken cancellationToken)
         {
-            if (!Directory.Exists(modelDir))
+            // Build manifest: 4 ONNX + 2 JSON config + 10 voice styles = 16 files.
+            // Order matters: it determines how the resulting path array maps
+            // back into TtsAssets / the voice style dictionary.
+            var manifest = new List<string>
             {
-                string msg = $"Model directory not found at {modelDir}, download it from HuggingFace https://huggingface.co/Supertone/supertonic-3";
-                Debug.LogError(msg);
-                throw new DirectoryNotFoundException(msg);
+                "onnx/duration_predictor.onnx",
+                "onnx/text_encoder.onnx",
+                "onnx/vector_estimator.onnx",
+                "onnx/vocoder.onnx",
+                "onnx/tts.json",
+                "onnx/unicode_indexer.json",
+            };
+            manifest.AddRange(VoiceIds.Select(id => $"voice_styles/{id}.json"));
+
+            var files = manifest.Select(p => new RemoteFile(ModelBaseUrl + p)).ToArray();
+
+            // Get file sizes for progress.
+            long[] sizes = await Task.WhenAll(files.Select(f => f.GetSize(cancellationToken).AsTask()));
+            long totalBytes = sizes.Sum();
+
+            // Pre-fill progress for cached files (which won't emit OnDownloadProgress).
+            var perFileProgress = new float[files.Length];
+            for (int i = 0; i < files.Length; i++)
+            {
+                if (files[i].HasCache) perFileProgress[i] = 1.0f;
+            }
+            ReportWeighted(progress, perFileProgress, sizes, totalBytes);
+
+            // Subscribe to per-file progress and aggregate into a single 0..1 value.
+            for (int i = 0; i < files.Length; i++)
+            {
+                int idx = i;
+                files[i].OnDownloadProgress += p =>
+                {
+                    perFileProgress[idx] = p;
+                    ReportWeighted(progress, perFileProgress, sizes, totalBytes);
+                };
             }
 
-            string onnxDir = Path.Combine(modelDir, "onnx");
-            string voiceDir = Path.Combine(modelDir, "voice_styles");
-            if (!Directory.Exists(onnxDir) || !Directory.Exists(voiceDir))
-            {
-                string msg = $"Expected '{onnxDir}' and '{voiceDir}' under model directory.";
-                Debug.LogError(msg);
-                throw new DirectoryNotFoundException(msg);
-            }
+            // Download or resolve from cache all 16 files in parallel.
+            string[] paths = await Task.WhenAll(files.Select(f => f.EnsureLocal(cancellationToken).AsTask()));
 
             await Awaitable.BackgroundThreadAsync();
             cancellationToken.ThrowIfCancellationRequested();
+
+            var assets = new TtsAssets
+            {
+                DurationPredictorOnnxPath = paths[0],
+                TextEncoderOnnxPath = paths[1],
+                VectorEstimatorOnnxPath = paths[2],
+                VocoderOnnxPath = paths[3],
+                TtsConfigJsonPath = paths[4],
+                UnicodeIndexerJsonPath = paths[5],
+            };
 
             TextToSpeech tts = null;
             var styles = new Dictionary<string, Style>(VoiceIds.Length);
             try
             {
-                tts = Helper.LoadTextToSpeech(onnxDir);
-                foreach (var id in VoiceIds)
+                tts = Helper.LoadTextToSpeech(assets);
+                for (int i = 0; i < VoiceIds.Length; i++)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    styles[id] = Helper.LoadVoiceStyle(Path.Combine(voiceDir, $"{id}.json"));
+                    styles[VoiceIds[i]] = Helper.LoadVoiceStyle(paths[6 + i]);
                 }
             }
             catch (Exception)
@@ -131,6 +128,17 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             cancellationToken.ThrowIfCancellationRequested();
 
             return new SupertonicTTS(tts, styles);
+        }
+
+        static void ReportWeighted(IProgress<float> progress, float[] perFile, long[] sizes, long totalBytes)
+        {
+            if (progress == null) return;
+            float weighted = 0;
+            for (int j = 0; j < perFile.Length; j++)
+            {
+                weighted += perFile[j] * sizes[j];
+            }
+            progress.Report(weighted / totalBytes);
         }
 
         /// <summary>

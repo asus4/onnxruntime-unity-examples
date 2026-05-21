@@ -11,11 +11,9 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
-using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using UnityEngine;
 
 namespace Microsoft.ML.OnnxRuntime.Examples.Supertonic
 {
@@ -387,19 +385,21 @@ namespace Microsoft.ML.OnnxRuntime.Examples.Supertonic
         // TextToSpeech loading (config + 4 ONNX models + unicode indexer)
         // ============================================================================
 
-        public static TextToSpeech LoadTextToSpeech(string onnxDir)
+        public static TextToSpeech LoadTextToSpeech(TtsAssets assets)
         {
-            var cfg = LoadConfig(Path.Combine(onnxDir, "tts.json"));
-            var textProcessor = new UnicodeProcessor(Path.Combine(onnxDir, "unicode_indexer.json"));
+            var cfg = LoadConfig(assets.TtsConfigJsonPath);
+            var textProcessor = new UnicodeProcessor(assets.UnicodeIndexerJsonPath);
             var opts = new SessionOptions();
 
             InferenceSession dp = null, textEnc = null, vectorEst = null, vocoder = null;
             try
             {
-                dp = new InferenceSession(Path.Combine(onnxDir, "duration_predictor.onnx"), opts);
-                textEnc = new InferenceSession(Path.Combine(onnxDir, "text_encoder.onnx"), opts);
-                vectorEst = new InferenceSession(Path.Combine(onnxDir, "vector_estimator.onnx"), opts);
-                vocoder = new InferenceSession(Path.Combine(onnxDir, "vocoder.onnx"), opts);
+                // ORT loads these via the native path, allowing mmap so the model
+                // bytes (256MB for vector_estimator) never enter the managed heap.
+                dp = new InferenceSession(assets.DurationPredictorOnnxPath, opts);
+                textEnc = new InferenceSession(assets.TextEncoderOnnxPath, opts);
+                vectorEst = new InferenceSession(assets.VectorEstimatorOnnxPath, opts);
+                vocoder = new InferenceSession(assets.VocoderOnnxPath, opts);
             }
             catch
             {

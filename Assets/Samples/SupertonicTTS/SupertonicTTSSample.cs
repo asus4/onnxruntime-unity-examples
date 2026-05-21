@@ -58,8 +58,6 @@ public sealed class SupertonicTTSSample : MonoBehaviour
         new("vi", "Vietnamese (vi)", "Hệ thống chuyển văn bản thành giọng nói này chạy hoàn toàn trong trình duyệt của bạn, mang lại hoạt động nhanh chóng và riêng tư mà không gửi bất kỳ dữ liệu nào đến máy chủ bên ngoài."),
     };
 
-    [SerializeField] SupertonicTTS.Options[] platformOptions = { };
-
     [Header("UI References")]
     [SerializeField] TMP_InputField input;
     [SerializeField] TMP_Dropdown voiceDropdown;
@@ -74,7 +72,7 @@ public sealed class SupertonicTTSSample : MonoBehaviour
     {
         RuntimeSystemFontFallback.Install();
 
-        SetStatus("Loading model...");
+        SetStatus("Preparing models...");
         SetButtonEnabled(false);
 
         voiceDropdown.ClearOptions();
@@ -87,17 +85,11 @@ public sealed class SupertonicTTSSample : MonoBehaviour
         input.text = LangPresets[langDropdown.value].Sample;
         langDropdown.onValueChanged.AddListener(OnLangChanged);
 
-        var platform = Application.platform;
-        var options = platformOptions.FirstOrDefault(o => o.platforms.Contains(platform));
-        if (options == null || !options.TryGetModelPath(out var modelPath))
-        {
-            SetStatus("Model not found. Download it via:\n  hf download Supertone/supertonic-3 --local-dir <modelDir>");
-            return;
-        }
-
+        // Progress the callback to Unity main thread
+        var progress = new Progress<float>(p => SetStatus($"Downloading models... {p:P0}"));
         try
         {
-            tts = await SupertonicTTS.InitAsync(modelPath, destroyCancellationToken);
+            tts = await SupertonicTTS.InitAsync(progress, destroyCancellationToken);
         }
         catch (OperationCanceledException)
         {
