@@ -7,45 +7,117 @@ namespace Microsoft.ML.OnnxRuntime.Examples
 {
     public static class RuntimeSystemFontFallback
     {
-        static readonly string[] FontFamilies =
+        readonly struct FontEntry
         {
-            "Noto Sans",
-            "Arial",
-            "Arial Unicode MS",
-            "Segoe UI",
-            "DejaVu Sans",
-            "FreeSans",
+            public readonly string Family;
+            public readonly string Style;
 
-            "Noto Sans CJK JP",
-            "Noto Sans JP",
-            "Hiragino Sans",
-            "Hiragino Kaku Gothic ProN",
-            "Yu Gothic UI",
-            "Yu Gothic",
-            "Meiryo",
+            public FontEntry(string family, string style)
+            {
+                Family = family;
+                Style = style;
+            }
 
-            "Noto Sans CJK KR",
-            "Noto Sans KR",
-            "Apple SD Gothic Neo",
-            "Malgun Gothic",
+            public string AssetName => $"Runtime Fallback Font - {Family} {Style}";
 
-            "Noto Sans CJK SC",
-            "Noto Sans CJK TC",
-            "PingFang SC",
-            "PingFang TC",
-            "Microsoft YaHei UI",
-            "Microsoft JhengHei UI",
+            public bool TryCreateFontAsset(out TMP_FontAsset fontAsset)
+            {
+                fontAsset = TMP_FontAsset.CreateFontAsset(Family, Style, 90);
+                if (fontAsset != null)
+                {
+                    fontAsset.name = AssetName;
+                    fontAsset.isMultiAtlasTexturesEnabled = true;
+                    return true;
+                }
+                return false;
+            }
+        }
 
-            "Noto Sans Arabic",
-            "Geeza Pro",
+        // iOS bundled fonts.
+        // https://developer.apple.com/fonts/system-fonts/
+        static readonly FontEntry[] IOSFonts =
+        {
+            new("Helvetica Neue", "Regular"),
+            new("Arial", "Regular"),
 
-            "Noto Sans Devanagari",
-            "Kohinoor Devanagari",
-            "Devanagari Sangam MN",
-            "Nirmala UI",
+            new("Hiragino Sans", "W3"),
+            new("Apple SD Gothic Neo", "Regular"),
 
-            "Roboto",
-            "Droid Sans",
+            new("PingFang SC", "Regular"),
+            new("PingFang TC", "Regular"),
+
+            new("Geeza Pro", "Regular"),
+
+            new("Kohinoor Devanagari", "Regular"),
+            new("Devanagari Sangam MN", "Regular"),
+        };
+
+        // macOS bundled fonts.
+        // https://developer.apple.com/fonts/system-fonts/
+        static readonly FontEntry[] MacOSFonts =
+        {
+            new("Helvetica Neue", "Regular"),
+            new("Arial", "Regular"),
+
+            new("Hiragino Sans", "W3"),
+            new("Apple SD Gothic Neo", "Regular"),
+
+            new("PingFang SC", "Regular"),
+            new("PingFang TC", "Regular"),
+
+            new("Geeza Pro", "Regular"),
+
+            new("Kohinoor Devanagari", "Regular"),
+            new("Devanagari Sangam MN", "Regular"),
+        };
+
+        // Android (7.0+) bundled fonts.
+        // https://android.googlesource.com/platform/frameworks/base/+/refs/heads/main/data/fonts/fonts.xml
+        static readonly FontEntry[] AndroidFonts =
+        {
+            new("Roboto", "Regular"),
+
+            new("Noto Sans CJK JP", "Regular"),
+            new("Noto Sans CJK KR", "Regular"),
+            new("Noto Sans CJK SC", "Regular"),
+            new("Noto Sans CJK TC", "Regular"),
+
+            new("Noto Sans Arabic", "Regular"),
+            new("Noto Sans Devanagari", "Regular"),
+        };
+
+        // Windows bundled fonts.
+        // Source: https://learn.microsoft.com/en-us/typography/fonts/windows_11_font_list
+        static readonly FontEntry[] WindowsFonts =
+        {
+            new("Segoe UI", "Regular"),
+            new("Arial", "Regular"),
+
+            new("Yu Gothic UI", "Regular"),
+            new("Yu Gothic", "Regular"),
+            new("Meiryo", "Regular"),
+
+            new("Malgun Gothic", "Regular"),
+
+            new("Microsoft YaHei UI", "Regular"),
+            new("Microsoft JhengHei UI", "Regular"),
+
+            new("Nirmala UI", "Regular"),
+        };
+
+        // Linux fonts commonly available via fontconfig (DejaVu / Noto).
+        static readonly FontEntry[] LinuxFonts =
+        {
+            new("DejaVu Sans", "Book"),
+            new("Noto Sans", "Regular"),
+
+            new("Noto Sans CJK JP", "Regular"),
+            new("Noto Sans CJK KR", "Regular"),
+            new("Noto Sans CJK SC", "Regular"),
+            new("Noto Sans CJK TC", "Regular"),
+
+            new("Noto Sans Arabic", "Regular"),
+            new("Noto Sans Devanagari", "Regular"),
         };
 
         static bool installed;
@@ -71,25 +143,33 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             // Remove empty/null entries in case there are any
             fallbacks.RemoveAll(fontAsset => fontAsset == null);
 
-            foreach (string fontFamily in FontFamilies)
+            foreach (FontEntry entry in GetFontEntries())
             {
-                string assetName = $"Runtime Fallback Font - {fontFamily}";
+                string assetName = entry.AssetName;
                 if (fallbacks.Any(fontAsset => fontAsset != null && fontAsset.name == assetName))
                 {
                     continue;
                 }
 
-                var fontAsset = TMP_FontAsset.CreateFontAsset(fontFamily, "Regular", 90);
-                if (fontAsset == null)
+                if (entry.TryCreateFontAsset(out var fontAsset))
                 {
-                    continue;
+                    fallbacks.Add(fontAsset);
+                    Debug.Log($"Installed system font fallback: {entry.Family} {entry.Style}");
                 }
-
-                fontAsset.name = assetName;
-                fontAsset.isMultiAtlasTexturesEnabled = true;
-                fallbacks.Add(fontAsset);
-                Debug.Log($"Installed system font fallback: {fontFamily}");
             }
+        }
+
+        static FontEntry[] GetFontEntries()
+        {
+            return Application.platform switch
+            {
+                RuntimePlatform.IPhonePlayer => IOSFonts,
+                RuntimePlatform.OSXPlayer or RuntimePlatform.OSXEditor => MacOSFonts,
+                RuntimePlatform.Android => AndroidFonts,
+                RuntimePlatform.WindowsPlayer or RuntimePlatform.WindowsEditor => WindowsFonts,
+                RuntimePlatform.LinuxPlayer or RuntimePlatform.LinuxEditor => LinuxFonts,
+                _ => MacOSFonts,
+            };
         }
     }
 }
