@@ -396,6 +396,7 @@ MonoBehaviour:
   sceneNames:
   - MobileOne
   - Yolox
+  - PicoDet
   - NanoSAM
   - Yolo11Seg
   - UnitTestAdd
