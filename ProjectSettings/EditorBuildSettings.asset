@@ -29,5 +29,8 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Samples/PicoDet/PicoDet.unity
     guid: 66df17692bfe3487f8f419f73b4ecda3
+  - enabled: 1
+    path: Assets/Samples/SupertonicTTS/SupertonicTTS.unity
+    guid: 9bb072e454e0b40248f375075d4850e8
   m_configObjects: {}
   m_UseUCBPForAssetBundles: 0
