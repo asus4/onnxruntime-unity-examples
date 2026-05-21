@@ -1,58 +1,16 @@
 using System;
-using System.IO;
 using System.Linq;
 using Microsoft.ML.OnnxRuntime.Examples;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class SupertonicTTSSample : MonoBehaviour
+public sealed class SupertonicTTSSample : MonoBehaviour
 {
-    public enum PathType
-    {
-        Absolute,
-        Data,
-        Persistent,
-        TemporaryCache,
-        StreamingAssets,
-    }
-
-    [Serializable]
-    public class Options
-    {
-        public RuntimePlatform[] platforms = { RuntimePlatform.OSXEditor, RuntimePlatform.OSXPlayer };
-        public PathType pathType = PathType.Absolute;
-        public string modelPath = string.Empty;
-
-        public virtual bool TryGetModelPath(out string path)
-        {
-            path = modelPath;
-            if (string.IsNullOrWhiteSpace(path))
-            {
-                return false;
-            }
-
-            if (!Path.IsPathRooted(path))
-            {
-                path = pathType switch
-                {
-                    PathType.Absolute => path,
-                    PathType.Data => Path.Combine(Application.dataPath, path),
-                    PathType.Persistent => Path.Combine(Application.persistentDataPath, path),
-                    PathType.TemporaryCache => Path.Combine(Application.temporaryCachePath, path),
-                    PathType.StreamingAssets => Path.Combine(Application.streamingAssetsPath, path),
-                    _ => throw new NotImplementedException($"PathType {pathType} is not implemented"),
-                };
-            }
-
-            return Directory.Exists(path);
-        }
-    }
-
     const string Lang = "en";
     const string DefaultText = "This morning, I took a walk in the park, and the sound of the birds and the breeze was so pleasant that I stopped for a long time just to listen.";
 
-    [SerializeField] Options[] platformOptions = { };
+    [SerializeField] SupertonicTTS.Options[] platformOptions = { };
 
     [Header("UI References")]
     [SerializeField] TMP_InputField input;
@@ -109,6 +67,10 @@ public class SupertonicTTSSample : MonoBehaviour
         {
             generateButton.onClick.RemoveListener(OnGenerateClick);
         }
+        if (audioSource != null && audioSource.clip != null)
+        {
+            Destroy(audioSource.clip);
+        }
         tts?.Dispose();
     }
 
@@ -139,6 +101,10 @@ public class SupertonicTTSSample : MonoBehaviour
             return;
         }
 
+        if (audioSource.clip != null)
+        {
+            Destroy(audioSource.clip);
+        }
         var clip = AudioClip.Create($"supertonic_{voiceId}", pcm.Length, 1, tts.SampleRate, false);
         clip.SetData(pcm, 0);
         audioSource.clip = clip;
@@ -151,11 +117,11 @@ public class SupertonicTTSSample : MonoBehaviour
 
     void SetStatus(string msg)
     {
-        if (statusLabel != null) statusLabel.SetText(msg);
+        statusLabel.SetText(msg);
     }
 
     void SetButtonEnabled(bool enabled)
     {
-        if (generateButton != null) generateButton.interactable = enabled;
+        generateButton.interactable = enabled;
     }
 }

@@ -18,8 +18,50 @@ namespace Microsoft.ML.OnnxRuntime.Examples
     ///   <modelDir>/onnx/{tts.json,unicode_indexer.json}
     ///   <modelDir>/voice_styles/{M1..M5,F1..F5}.json
     /// </summary>
-    public class SupertonicTTS : IDisposable
+    public sealed class SupertonicTTS : IDisposable
     {
+
+        public enum PathType
+        {
+            Absolute,
+            Data,
+            Persistent,
+            TemporaryCache,
+            StreamingAssets,
+        }
+
+        [Serializable]
+        public class Options
+        {
+            public RuntimePlatform[] platforms = { RuntimePlatform.OSXEditor, RuntimePlatform.OSXPlayer };
+            public PathType pathType = PathType.Absolute;
+            public string modelPath = string.Empty;
+
+            public virtual bool TryGetModelPath(out string path)
+            {
+                path = modelPath;
+                if (string.IsNullOrWhiteSpace(path))
+                {
+                    return false;
+                }
+
+                if (!Path.IsPathRooted(path))
+                {
+                    path = pathType switch
+                    {
+                        PathType.Absolute => path,
+                        PathType.Data => Path.Combine(Application.dataPath, path),
+                        PathType.Persistent => Path.Combine(Application.persistentDataPath, path),
+                        PathType.TemporaryCache => Path.Combine(Application.temporaryCachePath, path),
+                        PathType.StreamingAssets => Path.Combine(Application.streamingAssetsPath, path),
+                        _ => throw new NotImplementedException($"PathType {pathType} is not implemented"),
+                    };
+                }
+
+                return Directory.Exists(path);
+            }
+        }
+
         public static readonly string[] VoiceIds = { "M1", "M2", "M3", "M4", "M5", "F1", "F2", "F3", "F4", "F5" };
 
         readonly TextToSpeech tts;
@@ -72,12 +114,11 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             var styles = new Dictionary<string, Style>(VoiceIds.Length);
             try
             {
-                tts = Helper.LoadTextToSpeech(onnxDir, useGpu: false);
+                tts = Helper.LoadTextToSpeech(onnxDir);
                 foreach (var id in VoiceIds)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    var path = Path.Combine(voiceDir, $"{id}.json");
-                    styles[id] = Helper.LoadVoiceStyle(new List<string> { path });
+                    styles[id] = Helper.LoadVoiceStyle(Path.Combine(voiceDir, $"{id}.json"));
                 }
             }
             catch (Exception)
@@ -105,7 +146,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             await Awaitable.BackgroundThreadAsync();
             cancellationToken.ThrowIfCancellationRequested();
 
-            var (pcm, _) = tts.Call(text, lang, style, TotalStep, Speed);
+            var pcm = tts.Call(text, lang, style, TotalStep, Speed);
 
             await Awaitable.MainThreadAsync();
             cancellationToken.ThrowIfCancellationRequested();

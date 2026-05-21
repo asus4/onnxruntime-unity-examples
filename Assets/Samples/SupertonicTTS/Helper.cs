@@ -2,7 +2,8 @@
 /// Copyright (c) 2025 Supertone Inc.
 ///
 /// Derived from https://github.com/supertone-inc/supertonic/blob/main/csharp/Helper.cs
-/// Adapted for Unity: namespace change, Console.WriteLine -> UnityEngine.Debug.Log.
+/// Adapted for Unity and simplified to the single-text / single-voice path
+/// (batched inference paths from the upstream reference were removed).
 
 using System;
 using System.Collections.Generic;
@@ -25,25 +26,15 @@ namespace Microsoft.ML.OnnxRuntime.Examples.Supertonic
     }
 
     // ============================================================================
-    // Configuration classes
+    // Configuration
     // ============================================================================
 
     public class Config
     {
-        public AEConfig AE { get; set; } = null!;
-        public TTLConfig TTL { get; set; } = null!;
-
-        public class AEConfig
-        {
-            public int SampleRate { get; set; }
-            public int BaseChunkSize { get; set; }
-        }
-
-        public class TTLConfig
-        {
-            public int ChunkCompressFactor { get; set; }
-            public int LatentDim { get; set; }
-        }
+        public int SampleRate;
+        public int BaseChunkSize;
+        public int ChunkCompressFactor;
+        public int LatentDim;
     }
 
     // ============================================================================
@@ -52,12 +43,12 @@ namespace Microsoft.ML.OnnxRuntime.Examples.Supertonic
 
     public class Style
     {
-        public float[] Ttl { get; set; }
-        public long[] TtlShape { get; set; }
-        public float[] Dp { get; set; }
-        public long[] DpShape { get; set; }
+        public readonly float[] Ttl;
+        public readonly int[] TtlShape;
+        public readonly float[] Dp;
+        public readonly int[] DpShape;
 
-        public Style(float[] ttl, long[] ttlShape, float[] dp, long[] dpShape)
+        public Style(float[] ttl, int[] ttlShape, float[] dp, int[] dpShape)
         {
             Ttl = ttl;
             TtlShape = ttlShape;
@@ -77,8 +68,9 @@ namespace Microsoft.ML.OnnxRuntime.Examples.Supertonic
         public UnicodeProcessor(string unicodeIndexerPath)
         {
             var json = File.ReadAllText(unicodeIndexerPath);
-            var indexerArray = JsonConvert.DeserializeObject<long[]>(json) ?? throw new Exception("Failed to load indexer");
-            _indexer = new Dictionary<int, long>();
+            var indexerArray = JsonConvert.DeserializeObject<long[]>(json)
+                ?? throw new Exception("Failed to load indexer");
+            _indexer = new Dictionary<int, long>(indexerArray.Length);
             for (int i = 0; i < indexerArray.Length; i++)
             {
                 _indexer[i] = indexerArray[i];
@@ -87,7 +79,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples.Supertonic
 
         private static string RemoveEmojis(string text)
         {
-            var result = new StringBuilder();
+            var result = new StringBuilder(text.Length);
             for (int i = 0; i < text.Length; i++)
             {
                 int codePoint;
@@ -132,8 +124,40 @@ namespace Microsoft.ML.OnnxRuntime.Examples.Supertonic
             return result.ToString();
         }
 
-        private string PreprocessText(string text, string lang)
+        // Replace various dashes / quotes / brackets / arrows with ASCII equivalents,
+        // and expand known abbreviations.
+        private static readonly Dictionary<string, string> SymbolReplacements = new()
         {
+            {"–", "-"},      // en dash
+            {"‑", "-"},      // non-breaking hyphen
+            {"—", "-"},      // em dash
+            {"_", " "},      // underscore
+            {"“", "\""},     // left double quote
+            {"”", "\""},     // right double quote
+            {"‘", "'"},      // left single quote
+            {"’", "'"},      // right single quote
+            {"´", "'"},      // acute accent
+            {"`", "'"},      // grave accent
+            {"[", " "},      // left bracket
+            {"]", " "},      // right bracket
+            {"|", " "},      // vertical bar
+            {"/", " "},      // slash
+            {"#", " "},      // hash
+            {"→", " "},      // right arrow
+            {"←", " "},      // left arrow
+            {"@", " at "},
+            {"e.g.,", "for example, "},
+            {"i.e.,", "that is, "},
+        };
+
+        private static string PreprocessText(string text, string lang)
+        {
+            // Validate language
+            if (!Languages.Available.Contains(lang))
+            {
+                throw new ArgumentException($"Invalid language: {lang}. Available: {string.Join(", ", Languages.Available)}");
+            }
+
             // TODO: Need advanced normalizer for better performance
             text = text.Normalize(NormalizationForm.FormKD);
 
@@ -141,48 +165,14 @@ namespace Microsoft.ML.OnnxRuntime.Examples.Supertonic
             // C# doesn't support \u{...} syntax in regex, so we use character filtering instead
             text = RemoveEmojis(text);
 
-            // Replace various dashes and symbols
-            var replacements = new Dictionary<string, string>
-            {
-                {"–", "-"},      // en dash
-                {"‑", "-"},      // non-breaking hyphen
-                {"—", "-"},      // em dash
-                {"_", " "},      // underscore
-                {"“", "\""},     // left double quote
-                {"”", "\""},     // right double quote
-                {"‘", "'"},      // left single quote
-                {"’", "'"},      // right single quote
-                {"´", "'"},      // acute accent
-                {"`", "'"},      // grave accent
-                {"[", " "},      // left bracket
-                {"]", " "},      // right bracket
-                {"|", " "},      // vertical bar
-                {"/", " "},      // slash
-                {"#", " "},      // hash
-                {"→", " "},      // right arrow
-                {"←", " "},      // left arrow
-            };
-
-            foreach (var kvp in replacements)
+            // Replace dashes, quotes, brackets, arrows and known expressions
+            foreach (var kvp in SymbolReplacements)
             {
                 text = text.Replace(kvp.Key, kvp.Value);
             }
 
             // Remove special symbols
             text = Regex.Replace(text, @"[♥☆♡©\\]", "");
-
-            // Replace known expressions
-            var exprReplacements = new Dictionary<string, string>
-            {
-                {"@", " at "},
-                {"e.g.,", "for example, "},
-                {"i.e.,", "that is, "},
-            };
-
-            foreach (var kvp in exprReplacements)
-            {
-                text = text.Replace(kvp.Key, kvp.Value);
-            }
 
             // Fix spacing around punctuation
             text = Regex.Replace(text, @" ,", ",");
@@ -194,72 +184,35 @@ namespace Microsoft.ML.OnnxRuntime.Examples.Supertonic
             text = Regex.Replace(text, @" '", "'");
 
             // Remove duplicate quotes
-            while (text.Contains("\"\""))
-            {
-                text = text.Replace("\"\"", "\"");
-            }
-            while (text.Contains("''"))
-            {
-                text = text.Replace("''", "'");
-            }
-            while (text.Contains("``"))
-            {
-                text = text.Replace("``", "`");
-            }
+            while (text.Contains("\"\"")) text = text.Replace("\"\"", "\"");
+            while (text.Contains("''")) text = text.Replace("''", "'");
+            while (text.Contains("``")) text = text.Replace("``", "`");
 
             // Remove extra spaces
             text = Regex.Replace(text, @"\s+", " ").Trim();
 
             // If text doesn't end with punctuation, quotes, or closing brackets, add a period
-            if (!Regex.IsMatch(text, @"[.!?;:,'\u0022\u201C\u201D\u2018\u2019)\]}…。」』】〉》›»]$"))
+            if (!Regex.IsMatch(text, @"[.!?;:,'""“”‘’)\]}…。」』】〉》›»]$"))
             {
                 text += ".";
             }
 
-            // Validate language
-            if (!Languages.Available.Contains(lang))
-            {
-                throw new ArgumentException($"Invalid language: {lang}. Available: {string.Join(", ", Languages.Available)}");
-            }
-
             // Wrap text with language tags
-            text = $"<{lang}>" + text + $"</{lang}>";
-
-            return text;
+            return $"<{lang}>{text}</{lang}>";
         }
 
-        private int[] TextToUnicodeValues(string text)
+        public (long[] textIds, int length) Call(string text, string lang)
         {
-            return text.Select(c => (int)c).ToArray();
-        }
-
-        private float[][][] GetTextMask(long[] textIdsLengths)
-        {
-            return Helper.LengthToMask(textIdsLengths);
-        }
-
-        public (long[][] textIds, float[][][] textMask) Call(List<string> textList, List<string> langList)
-        {
-            var processedTexts = textList.Select((t, i) => PreprocessText(t, langList[i])).ToList();
-            var textIdsLengths = processedTexts.Select(t => (long)t.Length).ToArray();
-            long maxLen = textIdsLengths.Max();
-
-            var textIds = new long[textList.Count][];
-            for (int i = 0; i < processedTexts.Count; i++)
+            string processed = PreprocessText(text, lang);
+            var textIds = new long[processed.Length];
+            for (int i = 0; i < processed.Length; i++)
             {
-                textIds[i] = new long[maxLen];
-                var unicodeVals = TextToUnicodeValues(processedTexts[i]);
-                for (int j = 0; j < unicodeVals.Length; j++)
+                if (_indexer.TryGetValue(processed[i], out long val))
                 {
-                    if (_indexer.TryGetValue(unicodeVals[j], out long val))
-                    {
-                        textIds[i][j] = val;
-                    }
+                    textIds[i] = val;
                 }
             }
-
-            var textMask = GetTextMask(textIdsLengths);
-            return (textIds, textMask);
+            return (textIds, processed.Length);
         }
     }
 
@@ -269,36 +222,30 @@ namespace Microsoft.ML.OnnxRuntime.Examples.Supertonic
 
     public class TextToSpeech : IDisposable
     {
-        private readonly Config _cfgs;
+        private readonly Config _cfg;
         private readonly UnicodeProcessor _textProcessor;
         private readonly InferenceSession _dpOrt;
         private readonly InferenceSession _textEncOrt;
         private readonly InferenceSession _vectorEstOrt;
         private readonly InferenceSession _vocoderOrt;
-        public readonly int SampleRate;
-        private readonly int _baseChunkSize;
-        private readonly int _chunkCompressFactor;
-        private readonly int _ldim;
-        private bool _disposed = false;
+        private bool _disposed;
+
+        public int SampleRate => _cfg.SampleRate;
 
         public TextToSpeech(
-            Config cfgs,
+            Config cfg,
             UnicodeProcessor textProcessor,
             InferenceSession dpOrt,
             InferenceSession textEncOrt,
             InferenceSession vectorEstOrt,
             InferenceSession vocoderOrt)
         {
-            _cfgs = cfgs;
+            _cfg = cfg;
             _textProcessor = textProcessor;
             _dpOrt = dpOrt;
             _textEncOrt = textEncOrt;
             _vectorEstOrt = vectorEstOrt;
             _vocoderOrt = vocoderOrt;
-            SampleRate = cfgs.AE.SampleRate;
-            _baseChunkSize = cfgs.AE.BaseChunkSize;
-            _chunkCompressFactor = cfgs.TTL.ChunkCompressFactor;
-            _ldim = cfgs.TTL.LatentDim;
         }
 
         public void Dispose()
@@ -311,148 +258,9 @@ namespace Microsoft.ML.OnnxRuntime.Examples.Supertonic
             _disposed = true;
         }
 
-        private (float[][][] noisyLatent, float[][][] latentMask) SampleNoisyLatent(float[] duration)
-        {
-            int bsz = duration.Length;
-            float wavLenMax = duration.Max() * SampleRate;
-            var wavLengths = duration.Select(d => (long)(d * SampleRate)).ToArray();
-            int chunkSize = _baseChunkSize * _chunkCompressFactor;
-            int latentLen = (int)((wavLenMax + chunkSize - 1) / chunkSize);
-            int latentDim = _ldim * _chunkCompressFactor;
-
-            // Generate random noise
-            var random = new System.Random();
-            var noisyLatent = new float[bsz][][];
-            for (int b = 0; b < bsz; b++)
-            {
-                noisyLatent[b] = new float[latentDim][];
-                for (int d = 0; d < latentDim; d++)
-                {
-                    noisyLatent[b][d] = new float[latentLen];
-                    for (int t = 0; t < latentLen; t++)
-                    {
-                        // Box-Muller transform for normal distribution
-                        double u1 = 1.0 - random.NextDouble();
-                        double u2 = 1.0 - random.NextDouble();
-                        noisyLatent[b][d][t] = (float)(Math.Sqrt(-2.0 * Math.Log(u1)) * Math.Cos(2.0 * Math.PI * u2));
-                    }
-                }
-            }
-
-            var latentMask = Helper.GetLatentMask(wavLengths, _baseChunkSize, _chunkCompressFactor);
-
-            // Apply mask
-            for (int b = 0; b < bsz; b++)
-            {
-                for (int d = 0; d < latentDim; d++)
-                {
-                    for (int t = 0; t < latentLen; t++)
-                    {
-                        noisyLatent[b][d][t] *= latentMask[b][0][t];
-                    }
-                }
-            }
-
-            return (noisyLatent, latentMask);
-        }
-
-        private (float[] wav, float[] duration) _Infer(List<string> textList, List<string> langList, Style style, int totalStep, float speed = 1.05f)
-        {
-            int bsz = textList.Count;
-            if (bsz != style.TtlShape[0])
-            {
-                throw new ArgumentException("Number of texts must match number of style vectors");
-            }
-
-            // Process text
-            var (textIds, textMask) = _textProcessor.Call(textList, langList);
-            var textIdsShape = new long[] { bsz, textIds[0].Length };
-            var textMaskShape = new long[] { bsz, 1, textMask[0][0].Length };
-
-            var textIdsTensor = Helper.IntArrayToTensor(textIds, textIdsShape);
-            var textMaskTensor = Helper.ArrayToTensor(textMask, textMaskShape);
-
-            var styleTtlTensor = new DenseTensor<float>(style.Ttl, style.TtlShape.Select(x => (int)x).ToArray());
-            var styleDpTensor = new DenseTensor<float>(style.Dp, style.DpShape.Select(x => (int)x).ToArray());
-
-            // Run duration predictor
-            var dpInputs = new List<NamedOnnxValue>
-            {
-                NamedOnnxValue.CreateFromTensor("text_ids", textIdsTensor),
-                NamedOnnxValue.CreateFromTensor("style_dp", styleDpTensor),
-                NamedOnnxValue.CreateFromTensor("text_mask", textMaskTensor)
-            };
-            using var dpOutputs = _dpOrt.Run(dpInputs);
-            var durOnnx = dpOutputs.First(o => o.Name == "duration").AsTensor<float>().ToArray();
-
-            // Apply speed factor to duration
-            for (int i = 0; i < durOnnx.Length; i++)
-            {
-                durOnnx[i] /= speed;
-            }
-
-            // Run text encoder
-            var textEncInputs = new List<NamedOnnxValue>
-            {
-                NamedOnnxValue.CreateFromTensor("text_ids", textIdsTensor),
-                NamedOnnxValue.CreateFromTensor("style_ttl", styleTtlTensor),
-                NamedOnnxValue.CreateFromTensor("text_mask", textMaskTensor)
-            };
-            using var textEncOutputs = _textEncOrt.Run(textEncInputs);
-            var textEmbTensor = textEncOutputs.First(o => o.Name == "text_emb").AsTensor<float>();
-
-            // Sample noisy latent
-            var (xt, latentMask) = SampleNoisyLatent(durOnnx);
-            var latentShape = new long[] { bsz, xt[0].Length, xt[0][0].Length };
-            var latentMaskShape = new long[] { bsz, 1, latentMask[0][0].Length };
-
-            var totalStepArray = Enumerable.Repeat((float)totalStep, bsz).ToArray();
-
-            // Iterative denoising
-            for (int step = 0; step < totalStep; step++)
-            {
-                var currentStepArray = Enumerable.Repeat((float)step, bsz).ToArray();
-
-                var vectorEstInputs = new List<NamedOnnxValue>
-                {
-                    NamedOnnxValue.CreateFromTensor("noisy_latent", Helper.ArrayToTensor(xt, latentShape)),
-                    NamedOnnxValue.CreateFromTensor("text_emb", textEmbTensor),
-                    NamedOnnxValue.CreateFromTensor("style_ttl", styleTtlTensor),
-                    NamedOnnxValue.CreateFromTensor("text_mask", textMaskTensor),
-                    NamedOnnxValue.CreateFromTensor("latent_mask", Helper.ArrayToTensor(latentMask, latentMaskShape)),
-                    NamedOnnxValue.CreateFromTensor("total_step", new DenseTensor<float>(totalStepArray, new int[] { bsz })),
-                    NamedOnnxValue.CreateFromTensor("current_step", new DenseTensor<float>(currentStepArray, new int[] { bsz }))
-                };
-
-                using var vectorEstOutputs = _vectorEstOrt.Run(vectorEstInputs);
-                var denoisedLatent = vectorEstOutputs.First(o => o.Name == "denoised_latent").AsTensor<float>();
-
-                // Update xt
-                int idx = 0;
-                for (int b = 0; b < bsz; b++)
-                {
-                    for (int d = 0; d < xt[b].Length; d++)
-                    {
-                        for (int t = 0; t < xt[b][d].Length; t++)
-                        {
-                            xt[b][d][t] = denoisedLatent.GetValue(idx++);
-                        }
-                    }
-                }
-            }
-
-            // Run vocoder
-            var vocoderInputs = new List<NamedOnnxValue>
-            {
-                NamedOnnxValue.CreateFromTensor("latent", Helper.ArrayToTensor(xt, latentShape))
-            };
-            using var vocoderOutputs = _vocoderOrt.Run(vocoderInputs);
-            var wavTensor = vocoderOutputs.First(o => o.Name == "wav_tts").AsTensor<float>();
-
-            return (wavTensor.ToArray(), durOnnx);
-        }
-
-        public (float[] wav, float[] duration) Call(string text, string lang, Style style, int totalStep, float speed = 1.05f, float silenceDuration = 0.3f)
+        // Top-level entry: splits long text into chunks the model can handle,
+        // joins the per-chunk PCM with a short silence between each.
+        public float[] Call(string text, string lang, Style style, int totalStep, float speed = 1.05f, float silenceDuration = 0.3f)
         {
             if (style.TtlShape[0] != 1)
             {
@@ -460,35 +268,112 @@ namespace Microsoft.ML.OnnxRuntime.Examples.Supertonic
             }
 
             int maxLen = (lang == "ko" || lang == "ja") ? 120 : 300;
-            var textList = Helper.ChunkText(text, maxLen);
+            var chunks = Helper.ChunkText(text, maxLen);
+
             var wavCat = new List<float>();
-            float durCat = 0.0f;
-
-            foreach (var chunk in textList)
+            int silenceLen = (int)(silenceDuration * SampleRate);
+            for (int i = 0; i < chunks.Count; i++)
             {
-                var (wav, duration) = _Infer(new List<string> { chunk }, new List<string> { lang }, style, totalStep, speed);
+                if (i > 0) wavCat.AddRange(new float[silenceLen]);
+                wavCat.AddRange(Infer(chunks[i], lang, style, totalStep, speed));
+            }
+            return wavCat.ToArray();
+        }
 
-                if (wavCat.Count == 0)
+        // Runs the 4-stage pipeline (duration predictor -> text encoder ->
+        // iterative vector estimator -> vocoder) on a single chunk.
+        private float[] Infer(string text, string lang, Style style, int totalStep, float speed)
+        {
+            // Process text
+            var (textIds, textLen) = _textProcessor.Call(text, lang);
+
+            var textMask = new float[textLen];
+            Array.Fill(textMask, 1.0f);
+
+            var textIdsTensor = new DenseTensor<long>(textIds, new[] { 1, textLen });
+            var textMaskTensor = new DenseTensor<float>(textMask, new[] { 1, 1, textLen });
+            var styleTtlTensor = new DenseTensor<float>(style.Ttl, style.TtlShape);
+            var styleDpTensor = new DenseTensor<float>(style.Dp, style.DpShape);
+
+            // Run duration predictor (apply speed factor to the output)
+            float duration;
+            using (var dpOutputs = _dpOrt.Run(new[]
+            {
+                NamedOnnxValue.CreateFromTensor("text_ids", textIdsTensor),
+                NamedOnnxValue.CreateFromTensor("style_dp", styleDpTensor),
+                NamedOnnxValue.CreateFromTensor("text_mask", textMaskTensor),
+            }))
+            {
+                duration = dpOutputs.First(o => o.Name == "duration").AsTensor<float>().ToArray()[0] / speed;
+            }
+
+            // Run text encoder
+            using var textEncOutputs = _textEncOrt.Run(new[]
+            {
+                NamedOnnxValue.CreateFromTensor("text_ids", textIdsTensor),
+                NamedOnnxValue.CreateFromTensor("style_ttl", styleTtlTensor),
+                NamedOnnxValue.CreateFromTensor("text_mask", textMaskTensor),
+            });
+            var textEmbTensor = textEncOutputs.First(o => o.Name == "text_emb").AsTensor<float>();
+
+            // Sample noisy latent (and build the matching latent mask)
+            int chunkSize = _cfg.BaseChunkSize * _cfg.ChunkCompressFactor;
+            int wavLen = (int)(duration * SampleRate);
+            int latentLen = (wavLen + chunkSize - 1) / chunkSize;
+            int latentDim = _cfg.LatentDim * _cfg.ChunkCompressFactor;
+
+            // Single-batch latent mask is all ones (no padding to compete with),
+            // so we can skip the per-sample noise masking the upstream code does.
+            var latentMask = new float[latentLen];
+            Array.Fill(latentMask, 1.0f);
+            var latentMaskTensor = new DenseTensor<float>(latentMask, new[] { 1, 1, latentLen });
+
+            var xt = SampleStandardNormal(latentDim * latentLen);
+            int[] latentShape = { 1, latentDim, latentLen };
+
+            // Iterative denoising
+            float[] totalStepArr = { totalStep };
+            for (int step = 0; step < totalStep; step++)
+            {
+                float[] currentStepArr = { step };
+                using var vectorEstOutputs = _vectorEstOrt.Run(new[]
                 {
-                    wavCat.AddRange(wav);
-                    durCat = duration[0];
-                }
-                else
+                    NamedOnnxValue.CreateFromTensor("noisy_latent", new DenseTensor<float>(xt, latentShape)),
+                    NamedOnnxValue.CreateFromTensor("text_emb", textEmbTensor),
+                    NamedOnnxValue.CreateFromTensor("style_ttl", styleTtlTensor),
+                    NamedOnnxValue.CreateFromTensor("text_mask", textMaskTensor),
+                    NamedOnnxValue.CreateFromTensor("latent_mask", latentMaskTensor),
+                    NamedOnnxValue.CreateFromTensor("total_step", new DenseTensor<float>(totalStepArr, new[] { 1 })),
+                    NamedOnnxValue.CreateFromTensor("current_step", new DenseTensor<float>(currentStepArr, new[] { 1 })),
+                });
+                // Update xt with the denoised latent for the next step
+                var denoised = vectorEstOutputs.First(o => o.Name == "denoised_latent").AsTensor<float>();
+                for (int i = 0; i < xt.Length; i++)
                 {
-                    int silenceLen = (int)(silenceDuration * SampleRate);
-                    var silence = new float[silenceLen];
-                    wavCat.AddRange(silence);
-                    wavCat.AddRange(wav);
-                    durCat += duration[0] + silenceDuration;
+                    xt[i] = denoised.GetValue(i);
                 }
             }
 
-            return (wavCat.ToArray(), new float[] { durCat });
+            // Run vocoder
+            using var vocoderOutputs = _vocoderOrt.Run(new[]
+            {
+                NamedOnnxValue.CreateFromTensor("latent", new DenseTensor<float>(xt, latentShape)),
+            });
+            return vocoderOutputs.First(o => o.Name == "wav_tts").AsTensor<float>().ToArray();
         }
 
-        public (float[] wav, float[] duration) Batch(List<string> textList, List<string> langList, Style style, int totalStep, float speed = 1.05f)
+        // Box-Muller transform for standard normal distribution N(0, 1).
+        private static float[] SampleStandardNormal(int count)
         {
-            return _Infer(textList, langList, style, totalStep, speed);
+            var random = new System.Random();
+            var buf = new float[count];
+            for (int i = 0; i < count; i++)
+            {
+                double u1 = 1.0 - random.NextDouble();
+                double u2 = 1.0 - random.NextDouble();
+                buf[i] = (float)(Math.Sqrt(-2.0 * Math.Log(u1)) * Math.Cos(2.0 * Math.PI * u2));
+            }
+            return buf;
         }
     }
 
@@ -499,136 +384,65 @@ namespace Microsoft.ML.OnnxRuntime.Examples.Supertonic
     public static class Helper
     {
         // ============================================================================
-        // Utility functions
+        // TextToSpeech loading (config + 4 ONNX models + unicode indexer)
         // ============================================================================
 
-        public static float[][][] LengthToMask(long[] lengths, long maxLen = -1)
+        public static TextToSpeech LoadTextToSpeech(string onnxDir)
         {
-            if (maxLen == -1)
+            var cfg = LoadConfig(Path.Combine(onnxDir, "tts.json"));
+            var textProcessor = new UnicodeProcessor(Path.Combine(onnxDir, "unicode_indexer.json"));
+            var opts = new SessionOptions();
+
+            InferenceSession dp = null, textEnc = null, vectorEst = null, vocoder = null;
+            try
             {
-                maxLen = lengths.Max();
+                dp = new InferenceSession(Path.Combine(onnxDir, "duration_predictor.onnx"), opts);
+                textEnc = new InferenceSession(Path.Combine(onnxDir, "text_encoder.onnx"), opts);
+                vectorEst = new InferenceSession(Path.Combine(onnxDir, "vector_estimator.onnx"), opts);
+                vocoder = new InferenceSession(Path.Combine(onnxDir, "vocoder.onnx"), opts);
+            }
+            catch
+            {
+                // Make sure we don't leak any sessions that already loaded
+                dp?.Dispose();
+                textEnc?.Dispose();
+                vectorEst?.Dispose();
+                vocoder?.Dispose();
+                throw;
             }
 
-            var mask = new float[lengths.Length][][];
-            for (int i = 0; i < lengths.Length; i++)
-            {
-                mask[i] = new float[1][];
-                mask[i][0] = new float[maxLen];
-                for (int j = 0; j < maxLen; j++)
-                {
-                    mask[i][0][j] = j < lengths[i] ? 1.0f : 0.0f;
-                }
-            }
-            return mask;
+            return new TextToSpeech(cfg, textProcessor, dp, textEnc, vectorEst, vocoder);
         }
 
-        public static float[][][] GetLatentMask(long[] wavLengths, int baseChunkSize, int chunkCompressFactor)
+        private static Config LoadConfig(string cfgPath)
         {
-            int latentSize = baseChunkSize * chunkCompressFactor;
-            var latentLengths = wavLengths.Select(len => (len + latentSize - 1) / latentSize).ToArray();
-            return LengthToMask(latentLengths);
-        }
-
-        // ============================================================================
-        // ONNX model loading
-        // ============================================================================
-
-        public static InferenceSession LoadOnnx(string onnxPath, SessionOptions opts)
-        {
-            return new InferenceSession(onnxPath, opts);
-        }
-
-        public static (InferenceSession dp, InferenceSession textEnc, InferenceSession vectorEst, InferenceSession vocoder)
-            LoadOnnxAll(string onnxDir, SessionOptions opts)
-        {
-            var dpPath = Path.Combine(onnxDir, "duration_predictor.onnx");
-            var textEncPath = Path.Combine(onnxDir, "text_encoder.onnx");
-            var vectorEstPath = Path.Combine(onnxDir, "vector_estimator.onnx");
-            var vocoderPath = Path.Combine(onnxDir, "vocoder.onnx");
-
-            return (
-                LoadOnnx(dpPath, opts),
-                LoadOnnx(textEncPath, opts),
-                LoadOnnx(vectorEstPath, opts),
-                LoadOnnx(vocoderPath, opts)
-            );
-        }
-
-        // ============================================================================
-        // Configuration loading
-        // ============================================================================
-
-        public static Config LoadCfgs(string onnxDir)
-        {
-            var cfgPath = Path.Combine(onnxDir, "tts.json");
             var root = JObject.Parse(File.ReadAllText(cfgPath));
-
             return new Config
             {
-                AE = new Config.AEConfig
-                {
-                    SampleRate = (int)root["ae"]["sample_rate"],
-                    BaseChunkSize = (int)root["ae"]["base_chunk_size"]
-                },
-                TTL = new Config.TTLConfig
-                {
-                    ChunkCompressFactor = (int)root["ttl"]["chunk_compress_factor"],
-                    LatentDim = (int)root["ttl"]["latent_dim"]
-                }
+                SampleRate = (int)root["ae"]["sample_rate"],
+                BaseChunkSize = (int)root["ae"]["base_chunk_size"],
+                ChunkCompressFactor = (int)root["ttl"]["chunk_compress_factor"],
+                LatentDim = (int)root["ttl"]["latent_dim"],
             };
-        }
-
-        public static UnicodeProcessor LoadTextProcessor(string onnxDir)
-        {
-            var unicodeIndexerPath = Path.Combine(onnxDir, "unicode_indexer.json");
-            return new UnicodeProcessor(unicodeIndexerPath);
         }
 
         // ============================================================================
         // Voice style loading
         // ============================================================================
 
-        public static Style LoadVoiceStyle(List<string> voiceStylePaths, bool verbose = false)
+        public static Style LoadVoiceStyle(string voiceStylePath)
         {
-            int bsz = voiceStylePaths.Count;
+            var root = JObject.Parse(File.ReadAllText(voiceStylePath));
+            var ttlDims = root["style_ttl"]["dims"].ToObject<int[]>();
+            var dpDims = root["style_dp"]["dims"].ToObject<int[]>();
 
-            // Read first file to get dimensions
-            var firstRoot = JObject.Parse(File.ReadAllText(voiceStylePaths[0]));
-            var ttlDims = firstRoot["style_ttl"]["dims"].ToObject<long[]>();
-            var dpDims = firstRoot["style_dp"]["dims"].ToObject<long[]>();
+            var ttl = new float[ttlDims[0] * ttlDims[1] * ttlDims[2]];
+            FlattenInto(root["style_ttl"]["data"], ttl, 0);
 
-            long ttlDim1 = ttlDims[1];
-            long ttlDim2 = ttlDims[2];
-            long dpDim1 = dpDims[1];
-            long dpDim2 = dpDims[2];
+            var dp = new float[dpDims[0] * dpDims[1] * dpDims[2]];
+            FlattenInto(root["style_dp"]["data"], dp, 0);
 
-            // Pre-allocate arrays with full batch size
-            int ttlSize = (int)(bsz * ttlDim1 * ttlDim2);
-            int dpSize = (int)(bsz * dpDim1 * dpDim2);
-            var ttlFlat = new float[ttlSize];
-            var dpFlat = new float[dpSize];
-
-            // Fill in the data
-            for (int i = 0; i < bsz; i++)
-            {
-                var root = (i == 0) ? firstRoot : JObject.Parse(File.ReadAllText(voiceStylePaths[i]));
-
-                int ttlOffset = (int)(i * ttlDim1 * ttlDim2);
-                FlattenInto(root["style_ttl"]["data"], ttlFlat, ttlOffset);
-
-                int dpOffset = (int)(i * dpDim1 * dpDim2);
-                FlattenInto(root["style_dp"]["data"], dpFlat, dpOffset);
-            }
-
-            var ttlShape = new long[] { bsz, ttlDim1, ttlDim2 };
-            var dpShape = new long[] { bsz, dpDim1, dpDim2 };
-
-            if (verbose)
-            {
-                Debug.Log($"Loaded {bsz} voice styles");
-            }
-
-            return new Style(ttlFlat, ttlShape, dpFlat, dpShape);
+            return new Style(ttl, ttlDims, dp, dpDims);
         }
 
         // Flattens an arbitrarily nested JSON array of numbers into `dest` starting at `offset`.
@@ -647,188 +461,46 @@ namespace Microsoft.ML.OnnxRuntime.Examples.Supertonic
         }
 
         // ============================================================================
-        // TextToSpeech loading
-        // ============================================================================
-
-        public static TextToSpeech LoadTextToSpeech(string onnxDir, bool useGpu = false)
-        {
-            var opts = new SessionOptions();
-            if (useGpu)
-            {
-                throw new NotImplementedException("GPU mode is not supported yet");
-            }
-            else
-            {
-                Debug.Log("Using CPU for inference");
-            }
-
-            var cfgs = LoadCfgs(onnxDir);
-            var (dpOrt, textEncOrt, vectorEstOrt, vocoderOrt) = LoadOnnxAll(onnxDir, opts);
-            var textProcessor = LoadTextProcessor(onnxDir);
-
-            return new TextToSpeech(cfgs, textProcessor, dpOrt, textEncOrt, vectorEstOrt, vocoderOrt);
-        }
-
-        // ============================================================================
-        // WAV file writing
-        // ============================================================================
-
-        public static void WriteWavFile(string filename, float[] audioData, int sampleRate)
-        {
-            using var writer = new BinaryWriter(File.Open(filename, FileMode.Create));
-
-            int numChannels = 1;
-            int bitsPerSample = 16;
-            int byteRate = sampleRate * numChannels * bitsPerSample / 8;
-            short blockAlign = (short)(numChannels * bitsPerSample / 8);
-            int dataSize = audioData.Length * bitsPerSample / 8;
-
-            // RIFF header
-            writer.Write(Encoding.ASCII.GetBytes("RIFF"));
-            writer.Write(36 + dataSize);
-            writer.Write(Encoding.ASCII.GetBytes("WAVE"));
-
-            // fmt chunk
-            writer.Write(Encoding.ASCII.GetBytes("fmt "));
-            writer.Write(16); // fmt chunk size
-            writer.Write((short)1); // audio format (PCM)
-            writer.Write((short)numChannels);
-            writer.Write(sampleRate);
-            writer.Write(byteRate);
-            writer.Write(blockAlign);
-            writer.Write((short)bitsPerSample);
-
-            // data chunk
-            writer.Write(Encoding.ASCII.GetBytes("data"));
-            writer.Write(dataSize);
-
-            // Write audio data
-            foreach (var sample in audioData)
-            {
-                float clamped = Math.Max(-1.0f, Math.Min(1.0f, sample));
-                short intSample = (short)(clamped * 32767);
-                writer.Write(intSample);
-            }
-        }
-
-        // ============================================================================
-        // Tensor conversion utilities
-        // ============================================================================
-
-        public static DenseTensor<float> ArrayToTensor(float[][][] array, long[] dims)
-        {
-            var flat = new List<float>();
-            foreach (var batch in array)
-            {
-                foreach (var row in batch)
-                {
-                    flat.AddRange(row);
-                }
-            }
-            return new DenseTensor<float>(flat.ToArray(), dims.Select(x => (int)x).ToArray());
-        }
-
-        public static DenseTensor<long> IntArrayToTensor(long[][] array, long[] dims)
-        {
-            var flat = new List<long>();
-            foreach (var row in array)
-            {
-                flat.AddRange(row);
-            }
-            return new DenseTensor<long>(flat.ToArray(), dims.Select(x => (int)x).ToArray());
-        }
-
-        // ============================================================================
-        // Timer utility
-        // ============================================================================
-
-        public static T Timer<T>(string name, Func<T> func)
-        {
-            var start = DateTime.Now;
-            Debug.Log($"{name}...");
-            var result = func();
-            var elapsed = (DateTime.Now - start).TotalSeconds;
-            Debug.Log($"  -> {name} completed in {elapsed:F2} sec");
-            return result;
-        }
-
-        public static string SanitizeFilename(string text, int maxLen)
-        {
-            var result = new StringBuilder();
-            int count = 0;
-            foreach (char c in text)
-            {
-                if (count >= maxLen) break;
-                if (char.IsLetterOrDigit(c))
-                {
-                    result.Append(c);
-                }
-                else
-                {
-                    result.Append('_');
-                }
-                count++;
-            }
-            return result.ToString();
-        }
-
-        // ============================================================================
         // Chunk text
         // ============================================================================
+
+        // Split by paragraph (two or more newlines)
+        private static readonly Regex ParagraphRegex = new(@"\n\s*\n+");
+
+        // Split by sentence boundaries, excluding common abbreviations
+        private static readonly Regex SentenceRegex = new(@"(?<!Mr\.|Mrs\.|Ms\.|Dr\.|Prof\.|Sr\.|Jr\.|Ph\.D\.|etc\.|e\.g\.|i\.e\.|vs\.|Inc\.|Ltd\.|Co\.|Corp\.|St\.|Ave\.|Blvd\.)(?<!\b[A-Z]\.)(?<=[.!?])\s+");
 
         public static List<string> ChunkText(string text, int maxLen = 300)
         {
             var chunks = new List<string>();
 
-            // Split by paragraph (two or more newlines)
-            var paragraphRegex = new Regex(@"\n\s*\n+");
-            var paragraphs = paragraphRegex.Split(text.Trim())
+            var paragraphs = ParagraphRegex.Split(text.Trim())
                 .Select(p => p.Trim())
-                .Where(p => !string.IsNullOrEmpty(p))
-                .ToList();
-
-            // Split by sentence boundaries, excluding abbreviations
-            var sentenceRegex = new Regex(@"(?<!Mr\.|Mrs\.|Ms\.|Dr\.|Prof\.|Sr\.|Jr\.|Ph\.D\.|etc\.|e\.g\.|i\.e\.|vs\.|Inc\.|Ltd\.|Co\.|Corp\.|St\.|Ave\.|Blvd\.)(?<!\b[A-Z]\.)(?<=[.!?])\s+");
+                .Where(p => !string.IsNullOrEmpty(p));
 
             foreach (var paragraph in paragraphs)
             {
-                var sentences = sentenceRegex.Split(paragraph);
                 string currentChunk = "";
-
-                foreach (var sentence in sentences)
+                foreach (var sentence in SentenceRegex.Split(paragraph))
                 {
                     if (string.IsNullOrEmpty(sentence)) continue;
 
                     if (currentChunk.Length + sentence.Length + 1 <= maxLen)
                     {
-                        if (!string.IsNullOrEmpty(currentChunk))
-                        {
-                            currentChunk += " ";
-                        }
+                        if (currentChunk.Length > 0) currentChunk += " ";
                         currentChunk += sentence;
                     }
                     else
                     {
-                        if (!string.IsNullOrEmpty(currentChunk))
-                        {
-                            chunks.Add(currentChunk.Trim());
-                        }
+                        if (currentChunk.Length > 0) chunks.Add(currentChunk.Trim());
                         currentChunk = sentence;
                     }
                 }
-
-                if (!string.IsNullOrEmpty(currentChunk))
-                {
-                    chunks.Add(currentChunk.Trim());
-                }
+                if (currentChunk.Length > 0) chunks.Add(currentChunk.Trim());
             }
 
             // If no chunks were created, return the original text
-            if (chunks.Count == 0)
-            {
-                chunks.Add(text.Trim());
-            }
-
+            if (chunks.Count == 0) chunks.Add(text.Trim());
             return chunks;
         }
     }
