@@ -37,6 +37,7 @@ The following demos are available:
 - [MobileOne](https://github.com/apple/ml-mobileone): Image classification
 - [Yolox](https://github.com/Megvii-BaseDetection/YOLOX): Object detection
 - [RT-DETRv2](https://github.com/lyuwenyu/RT-DETR): Object detection
+- [PicoDet](https://github.com/PaddlePaddle/PaddleDetection/blob/release/2.9/configs/picodet/README_en.md): Object detection
 - [NanoSAM](https://github.com/NVIDIA-AI-IOT/nanosam/): Object Segmentation
 - [Yolo11-Seg](https://github.com/ultralytics/ultralytics/tree/main/examples/YOLOv8-Segmentation-ONNXRuntime-Python): Object detection and segmentation
 
@@ -57,9 +58,9 @@ Check out the [asus4/onnxruntime-unity](https://github.com/asus4/onnxruntime-uni
   ]
   "dependencies": {
     // Core library
-    "com.github.asus4.onnxruntime": "0.4.3",
+    "com.github.asus4.onnxruntime": "0.4.6",
     // (Optional) Utilities for Unity
-    "com.github.asus4.onnxruntime.unity": "0.4.3",
+    "com.github.asus4.onnxruntime.unity": "0.4.6",
     ... other dependencies
   }
 ```
