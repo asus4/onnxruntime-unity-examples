@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using Microsoft.ML.OnnxRuntime.Unity;
-using Microsoft.ML.OnnxRuntime.UnityEx;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;

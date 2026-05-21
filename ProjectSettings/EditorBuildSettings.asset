@@ -26,5 +26,8 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Samples/Phi4/Phi4.unity
     guid: e39f193bb3db14a1cbfcf61e4e3f1dd5
+  - enabled: 1
+    path: Assets/Samples/PicoDet/PicoDet.unity
+    guid: 66df17692bfe3487f8f419f73b4ecda3
   m_configObjects: {}
   m_UseUCBPForAssetBundles: 0
