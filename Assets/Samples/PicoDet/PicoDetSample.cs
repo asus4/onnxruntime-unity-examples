@@ -8,9 +8,14 @@ using UnityEngine;
 [RequireComponent(typeof(VirtualTextureSource))]
 public class PicoDetSample : MonoBehaviour
 {
+    // Download the pre-trained model from PaddleDetection website:
+    // https://github.com/PaddlePaddle/PaddleDetection/blob/release/2.9/configs/picodet/README_en.md
+    [Tooltip("The ONNX model asset. Download the model from PaddleDetection website")]
     [SerializeField]
     private OrtAsset model;
 
+    [SerializeField]
+    private RemoteFile modelFile = new("https://github.com/asus4/onnxruntime-unity-examples/releases/download/v0.2.7/picodet_s_320_coco_lcnet.onnx");
     [SerializeField]
     private PicoDet.Options options;
 
@@ -28,9 +33,12 @@ public class PicoDetSample : MonoBehaviour
     private TMPro.TMP_Text[] detectionBoxes;
     private readonly StringBuilder sb = new();
 
-    private void Start()
+    private async void Start()
     {
-        inference = new PicoDet(model.bytes, options);
+        byte[] onnxFile = model != null
+            ? model.bytes
+            : await modelFile.Load(destroyCancellationToken);
+        inference = new PicoDet(onnxFile, options);
 
         detectionBoxes = new TMPro.TMP_Text[maxDetections];
         for (int i = 0; i < maxDetections; i++)

@@ -890,13 +890,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 87e93d27952cc4c7db30b474f3556202, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PicoDetSample
-  model: {fileID: 1840921532545725537, guid: aac434abac881468993459bbd395e0b3, type: 3}
+  model: {fileID: 0}
+  modelFile:
+    url: https://github.com/asus4/onnxruntime-unity-examples/releases/download/v0.2.7/picodet_s_320_coco_lcnet.onnx
+    downloadLocation: 0
   options:
     aspectMode: 1
     mean: {x: 0.485, y: 0.456, z: 0.406}
     std: {x: 0.229, y: 0.224, z: 0.225}
     executionProvider:
-      executionProviderPriorities: 0100000002000000
+      executionProviderPriorities: 0200000001000000
     labelFile: {fileID: 4900000, guid: beb27c99747e4424b8a3b30237ffbede, type: 3}
     probThreshold: 0.3
     nmsThreshold: 0.6

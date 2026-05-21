@@ -83,8 +83,10 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                 for (int s = 0; s < Strides.Length; s++)
                 {
                     int stride = Strides[s];
-                    int gridH = height / stride;
-                    int gridW = width / stride;
+                    // Ceil division mirrors the FPN downsampling for inputs not cleanly divisible by stride
+                    // (e.g. 416 / 64 → 7×7 grid, not 6×6).
+                    int gridH = (height + stride - 1) / stride;
+                    int gridW = (width + stride - 1) / stride;
                     int cell = 0;
                     for (int gy = 0; gy < gridH; gy++)
                     {
