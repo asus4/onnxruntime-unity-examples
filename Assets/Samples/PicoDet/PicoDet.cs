@@ -180,15 +180,15 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             proposalsList.Clear();
             var job = new GenerateProposalsJob
             {
-                anchors = anchors,
-                scores0 = scores0,
-                scores1 = scores1,
-                scores2 = scores2,
-                scores3 = scores3,
-                boxes0 = boxes0,
-                boxes1 = boxes1,
-                boxes2 = boxes2,
-                boxes3 = boxes3,
+                anchors = anchors.AsReadOnly(),
+                scores0 = scores0.AsReadOnly(),
+                scores1 = scores1.AsReadOnly(),
+                scores2 = scores2.AsReadOnly(),
+                scores3 = scores3.AsReadOnly(),
+                boxes0 = boxes0.AsReadOnly(),
+                boxes1 = boxes1.AsReadOnly(),
+                boxes2 = boxes2.AsReadOnly(),
+                boxes3 = boxes3.AsReadOnly(),
                 widthScale = 1f / Width,
                 heightScale = 1f / Height,
                 probThreshold = options.probThreshold,
@@ -227,17 +227,17 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         [BurstCompile]
         private struct GenerateProposalsJob : IJobParallelFor
         {
-            [ReadOnly] public NativeArray<Anchor> anchors;
+            [ReadOnly, NoAlias] public NativeArray<Anchor>.ReadOnly anchors;
 
-            [ReadOnly] public NativeArray<float> scores0;
-            [ReadOnly] public NativeArray<float> scores1;
-            [ReadOnly] public NativeArray<float> scores2;
-            [ReadOnly] public NativeArray<float> scores3;
+            [ReadOnly, NoAlias] public NativeArray<float>.ReadOnly scores0;
+            [ReadOnly, NoAlias] public NativeArray<float>.ReadOnly scores1;
+            [ReadOnly, NoAlias] public NativeArray<float>.ReadOnly scores2;
+            [ReadOnly, NoAlias] public NativeArray<float>.ReadOnly scores3;
 
-            [ReadOnly] public NativeArray<float> boxes0;
-            [ReadOnly] public NativeArray<float> boxes1;
-            [ReadOnly] public NativeArray<float> boxes2;
-            [ReadOnly] public NativeArray<float> boxes3;
+            [ReadOnly, NoAlias] public NativeArray<float>.ReadOnly boxes0;
+            [ReadOnly, NoAlias] public NativeArray<float>.ReadOnly boxes1;
+            [ReadOnly, NoAlias] public NativeArray<float>.ReadOnly boxes2;
+            [ReadOnly, NoAlias] public NativeArray<float>.ReadOnly boxes3;
 
             public float widthScale;
             public float heightScale;
@@ -311,7 +311,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                     maxScore));
             }
 
-            private static void ArgMax(in NativeArray<float> buffer, int baseIndex, out float maxScore, out int maxLabel)
+            private static void ArgMax(in NativeArray<float>.ReadOnly buffer, int baseIndex, out float maxScore, out int maxLabel)
             {
                 maxScore = buffer[baseIndex];
                 maxLabel = 0;
@@ -326,7 +326,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                 }
             }
 
-            private static float DflIntegral(in NativeArray<float> buffer, int baseIndex)
+            private static float DflIntegral(in NativeArray<float>.ReadOnly buffer, int baseIndex)
             {
                 // Numerically-stable softmax: subtract max before exp.
                 float max = buffer[baseIndex];
