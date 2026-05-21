@@ -899,7 +899,7 @@ MonoBehaviour:
     mean: {x: 0.485, y: 0.456, z: 0.406}
     std: {x: 0.229, y: 0.224, z: 0.225}
     executionProvider:
-      executionProviderPriorities: 0200000001000000
+      executionProviderPriorities: 
     labelFile: {fileID: 4900000, guid: beb27c99747e4424b8a3b30237ffbede, type: 3}
     probThreshold: 0.3
     nmsThreshold: 0.6
