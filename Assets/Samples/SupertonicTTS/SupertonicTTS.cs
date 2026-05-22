@@ -115,7 +115,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
                 for (int i = 0; i < VoiceIds.Length; i++)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    styles[VoiceIds[i]] = Helper.LoadVoiceStyle(paths[6 + i]);
+                    styles[VoiceIds[i]] = Style.CreateFromJson(paths[6 + i]);
                 }
             }
             catch (Exception)

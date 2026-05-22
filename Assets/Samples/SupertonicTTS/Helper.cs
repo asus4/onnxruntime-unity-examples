@@ -53,6 +53,35 @@ namespace Microsoft.ML.OnnxRuntime.Examples.Supertonic
             Dp = dp;
             DpShape = dpShape;
         }
+
+        public static Style CreateFromJson(string jsonPath)
+        {
+            var root = JObject.Parse(File.ReadAllText(jsonPath));
+            var ttlDims = root["style_ttl"]["dims"].ToObject<int[]>();
+            var dpDims = root["style_dp"]["dims"].ToObject<int[]>();
+
+            var ttl = new float[ttlDims[0] * ttlDims[1] * ttlDims[2]];
+            FlattenInto(root["style_ttl"]["data"], ttl, 0);
+
+            var dp = new float[dpDims[0] * dpDims[1] * dpDims[2]];
+            FlattenInto(root["style_dp"]["data"], dp, 0);
+
+            return new Style(ttl, ttlDims, dp, dpDims);
+        }
+
+        private static int FlattenInto(JToken token, float[] dest, int offset)
+        {
+            if (token is JArray arr)
+            {
+                foreach (var child in arr)
+                {
+                    offset = FlattenInto(child, dest, offset);
+                }
+                return offset;
+            }
+            dest[offset] = (float)token;
+            return offset + 1;
+        }
     }
 
     // ============================================================================
@@ -424,40 +453,6 @@ namespace Microsoft.ML.OnnxRuntime.Examples.Supertonic
                 ChunkCompressFactor = (int)root["ttl"]["chunk_compress_factor"],
                 LatentDim = (int)root["ttl"]["latent_dim"],
             };
-        }
-
-        // ============================================================================
-        // Voice style loading
-        // ============================================================================
-
-        public static Style LoadVoiceStyle(string voiceStylePath)
-        {
-            var root = JObject.Parse(File.ReadAllText(voiceStylePath));
-            var ttlDims = root["style_ttl"]["dims"].ToObject<int[]>();
-            var dpDims = root["style_dp"]["dims"].ToObject<int[]>();
-
-            var ttl = new float[ttlDims[0] * ttlDims[1] * ttlDims[2]];
-            FlattenInto(root["style_ttl"]["data"], ttl, 0);
-
-            var dp = new float[dpDims[0] * dpDims[1] * dpDims[2]];
-            FlattenInto(root["style_dp"]["data"], dp, 0);
-
-            return new Style(ttl, ttlDims, dp, dpDims);
-        }
-
-        // Flattens an arbitrarily nested JSON array of numbers into `dest` starting at `offset`.
-        private static int FlattenInto(JToken token, float[] dest, int offset)
-        {
-            if (token is JArray arr)
-            {
-                foreach (var child in arr)
-                {
-                    offset = FlattenInto(child, dest, offset);
-                }
-                return offset;
-            }
-            dest[offset] = (float)token;
-            return offset + 1;
         }
 
         // ============================================================================
