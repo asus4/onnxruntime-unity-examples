@@ -399,6 +399,7 @@ MonoBehaviour:
   - PicoDet
   - NanoSAM
   - Yolo11Seg
+  - SupertonicTTS
   - UnitTestAdd
 --- !u!4 &557997006
 Transform:
