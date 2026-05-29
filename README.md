@@ -45,6 +45,7 @@ The following demos are available:
 - [PicoDet](https://github.com/PaddlePaddle/PaddleDetection/blob/release/2.9/configs/picodet/README_en.md): Object detection
 - [NanoSAM](https://github.com/NVIDIA-AI-IOT/nanosam/): Object Segmentation
 - [Yolo11-Seg](https://github.com/ultralytics/ultralytics/tree/main/examples/YOLOv8-Segmentation-ONNXRuntime-Python): Object detection and segmentation
+- [Supertonic TTS](https://github.com/supertone-inc/supertonic): Text to Speech
 
 ### Install pre-built ONNX Runtime via Unity Package Manager (UPM)
 
