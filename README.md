@@ -45,6 +45,7 @@ The following demos are available:
 - [PicoDet](https://github.com/PaddlePaddle/PaddleDetection/blob/release/2.9/configs/picodet/README_en.md): Object detection
 - [NanoSAM](https://github.com/NVIDIA-AI-IOT/nanosam/): Object Segmentation
 - [Yolo11-Seg](https://github.com/ultralytics/ultralytics/tree/main/examples/YOLOv8-Segmentation-ONNXRuntime-Python): Object detection and segmentation
+- [RTMPose](https://github.com/open-mmlab/mmpose/tree/main/projects/rtmpose): Multi-person 2D pose estimation (YOLOX person detection + RTMPose-t)
 - [Supertonic TTS](https://github.com/supertone-inc/supertonic): Text to Speech
 
 ### Install pre-built ONNX Runtime via Unity Package Manager (UPM)
@@ -64,9 +65,9 @@ Check out the [asus4/onnxruntime-unity](https://github.com/asus4/onnxruntime-uni
   ]
   "dependencies": {
     // Core library
-    "com.github.asus4.onnxruntime": "0.4.7",
+    "com.github.asus4.onnxruntime": "0.4.8",
     // (Optional) Utilities for Unity
-    "com.github.asus4.onnxruntime.unity": "0.4.7",
+    "com.github.asus4.onnxruntime.unity": "0.4.8",
     ... other dependencies
   }
 ```
