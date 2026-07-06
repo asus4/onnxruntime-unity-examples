@@ -1,3 +1,4 @@
+using System;
 using System.Text;
 using Microsoft.ML.OnnxRuntime.Unity;
 using Microsoft.ML.OnnxRuntime.Examples;
@@ -25,7 +26,7 @@ public class RTMPoseSample : MonoBehaviour
     private OrtAsset poseModel;
 
     [SerializeField]
-    private RemoteFile poseModelFile = new("https://github.com/asus4/onnxruntime-unity-examples/releases/download/v0.4.8/rtmpose-t_body7_256x192.with_runtime_opt.ort");
+    private RemoteFile poseModelFile = new("https://github.com/asus4/onnxruntime-unity-examples/releases/download/v0.2.7/rtmpose-t_body7_256x192.with_runtime_opt.ort");
 
     [SerializeField]
     private RTMPose.Options poseOptions;
@@ -53,9 +54,18 @@ public class RTMPoseSample : MonoBehaviour
     {
         detector = new Yolox(detectionModel.bytes, detectionOptions);
 
-        byte[] poseModelBytes = poseModel != null
-            ? poseModel.bytes
-            : await poseModelFile.Load(destroyCancellationToken);
+        byte[] poseModelBytes;
+        try
+        {
+            poseModelBytes = poseModel != null
+                ? poseModel.bytes
+                : await poseModelFile.Load(destroyCancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            // The component was destroyed while awaiting the download.
+            return;
+        }
         pose = new RTMPose(poseModelBytes, poseOptions);
 
         int maxPoses = poseOptions.maxPoses;
