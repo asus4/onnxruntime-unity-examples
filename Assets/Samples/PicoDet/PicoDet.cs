@@ -122,7 +122,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
         private NativeList<Detection> proposalsList;
         private NativeList<Detection> detectionsList;
 
-        public ReadOnlySpan<Detection> Detections => detectionsList.AsReadOnly();
+        public ReadOnlySpan<Detection> Detections => detectionsList.AsReadOnlySpan();
 
         static readonly ProfilerMarker generateProposalsMarker = new($"{typeof(PicoDet).Name}.GenerateProposals");
 
