@@ -26,11 +26,11 @@
       "url": "https://registry.npmjs.com"
     },
     "com.github.asus4.onnxruntime.linux-x64-gpu": {
-      "version": "0.2.1",
+      "version": "0.4.9",
       "depth": 0,
       "source": "registry",
       "dependencies": {
-        "com.github.asus4.onnxruntime": "0.2.1"
+        "com.github.asus4.onnxruntime": "0.4.9"
       },
       "url": "https://registry.npmjs.com"
     },
@@ -44,11 +44,11 @@
       "url": "https://registry.npmjs.com"
     },
     "com.github.asus4.onnxruntime.win-x64-gpu": {
-      "version": "0.2.1",
+      "version": "0.4.9",
       "depth": 0,
       "source": "registry",
       "dependencies": {
-        "com.github.asus4.onnxruntime": "0.2.1"
+        "com.github.asus4.onnxruntime": "0.4.9"
       },
       "url": "https://registry.npmjs.com"
     },
