@@ -34,6 +34,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
 
         private static readonly int _DetectionCount = Shader.PropertyToID("_DetectionCount");
         private static readonly int _MaskThreshold = Shader.PropertyToID("_MaskThreshold");
+        private const int MASK_SIZE = 32;
 
         private readonly Yolo11Seg.Options options;
 
@@ -54,8 +55,8 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             {
                 detectionBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, maxCount, UnsafeUtility.SizeOf<Yolo11Seg.Detection>());
 
-                maskData = new NativeArray<float>(maxCount * 32, Allocator.Persistent);
-                maskBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, maxCount, sizeof(float) * 32);
+                maskData = new NativeArray<float>(maxCount * MASK_SIZE, Allocator.Persistent);
+                maskBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, maxCount * MASK_SIZE, sizeof(float));
             }
 
             // Fill Color Table
@@ -104,8 +105,7 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             ReadOnlySpan<float> output1,
             NativeArray<Yolo11Seg.Detection>.ReadOnly detections)
         {
-            const int MASK_SIZE = 32;
-            int count = Math.Min(maskBuffer.count, detections.Length);
+            int count = Math.Min(options.maxDetectionCount, detections.Length);
             var detectionSpan = detections.AsReadOnlySpan()[..count];
 
             // Prepare mask data
