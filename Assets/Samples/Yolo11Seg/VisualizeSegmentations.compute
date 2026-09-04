@@ -11,18 +11,17 @@ struct Detection
 
 // Raw segmentation output1 from Yolo11
 // shape: 1,32,160,160
-Buffer<float> _SegmentationBuffer;
+StructuredBuffer<float> _SegmentationBuffer;
 
 // Detections
 StructuredBuffer<Detection> _DetectionBuffer;
 
 // 32 mask for detection converted from output0
 // shape: _DetectionCount, 32
-Buffer<float> _MaskBuffer;
-
+StructuredBuffer<float> _MaskBuffer;
 
 // shape: CLASS_COUNT(80), Color
-Buffer<float4> _ColorTable;
+StructuredBuffer<float4> _ColorTable;
 
 float _MaskThreshold;
 uint _DetectionCount;
@@ -78,9 +77,8 @@ void SegmentationToTexture (uint2 id : SV_DispatchThreadID)
             maxValue = sum;
         }
     }
-
-    int colorId = _DetectionBuffer[maxIndex].label;
+    
     _OutputTexture[id] = maxValue > _MaskThreshold
-        ? _ColorTable[colorId]
+        ? _ColorTable[_DetectionBuffer[maxIndex].label]
         : float4(0.0, 0.0, 0.0, 0.0);
 }
