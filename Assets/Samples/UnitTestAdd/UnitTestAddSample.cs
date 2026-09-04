@@ -39,6 +39,12 @@ public class UnitTestAddSample : MonoBehaviour
             TestNNAPI();
         }
 
+        // WebGPU: Windows
+        if (IsPlatform(RuntimePlatform.WindowsEditor, RuntimePlatform.WindowsPlayer))
+        {
+            TestWebGPU();
+        }
+
         // ONNX Runtime Extensions: macOS, Linux x64, Windows x64, iOS, Android
         TestOrtExtensions();
     }
@@ -84,6 +90,14 @@ public class UnitTestAddSample : MonoBehaviour
         Debug.Log("TestNNAPI");
         using SessionOptions options = new();
         options.AppendExecutionProvider_Nnapi();
+        RunSession(model.bytes, options);
+    }
+
+    private void TestWebGPU()
+    {
+        Debug.Log("TestWebGPU");
+        using SessionOptions options = new();
+        WebGpuExecutionProvider.Append(options);
         RunSession(model.bytes, options);
     }
 

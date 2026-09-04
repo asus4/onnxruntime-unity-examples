@@ -11,12 +11,17 @@ function print_usage() {
     echo "Example: $0 local"
 }
 
+# sed -i compatible with both BSD and GNU sed
+function sed_inplace() {
+    sed -i.bak "$1" "$MANIFEST" && rm -f "$MANIFEST.bak"
+}
+
 function switch_to_local() {
-    sed -i '' 's|"'"$1"'": "[^"]*"|"'"$1"'": "file:../../onnxruntime-unity/'"$1"'"|' $MANIFEST
+    sed_inplace 's|"'"$1"'": "[^"]*"|"'"$1"'": "file:../../onnxruntime-unity/'"$1"'"|'
 }
 
 function switch_to_npm() {
-    sed -i '' 's|"'"$1"'": "[^"]*"|"'"$1"'": "'"$2"'"|' $MANIFEST
+    sed_inplace 's|"'"$1"'": "[^"]*"|"'"$1"'": "'"$2"'"|'
 }
 
 # Validate input format
