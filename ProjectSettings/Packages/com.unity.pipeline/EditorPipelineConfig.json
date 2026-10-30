@@ -1,0 +1,15 @@
+{
+    "m_Port": 0,
+    "m_AutoStart": true,
+    "m_WatchdogEnabled": true,
+    "m_WatchdogIntervalSeconds": 5,
+    "m_LogRequestsResponses": false,
+    "m_EvalTelemetryEnabled": true,
+    "m_StoreEvalSource": false,
+    "m_AllowBrowserClients": false,
+    "m_MethodReloadRepushOnConnect": true,
+    "m_RunInBackgroundInPlayMode": false,
+    "m_RunInBackgroundOverridden": false,
+    "m_RunInBackgroundOriginal": true,
+    "m_RunInBackgroundCommandOverride": false
+}

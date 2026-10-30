@@ -47,6 +47,7 @@ The following demos are available:
 - [Yolo11-Seg](https://github.com/ultralytics/ultralytics/tree/main/examples/YOLOv8-Segmentation-ONNXRuntime-Python): Object detection and segmentation
 - [RTMPose](https://github.com/open-mmlab/mmpose/tree/main/projects/rtmpose): Multi-person 2D pose estimation (YOLOX person detection + RTMPose-t)
 - [Supertonic TTS](https://github.com/supertone-inc/supertonic): Text to Speech
+- [MotionBricks](https://github.com/NVlabs/motionbricks): Click-to-move character animation, generated in real time from a single standing pose. The SOMA model (758 MB) downloads from the original repository on first use, under the [NVIDIA Open Model Agreement](https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-open-model-agreement/).
 
 ### Install pre-built ONNX Runtime via Unity Package Manager (UPM)
 
