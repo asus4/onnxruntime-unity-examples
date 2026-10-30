@@ -12,15 +12,8 @@ namespace Microsoft.ML.OnnxRuntime.Examples
     public static class SomaSkeleton
     {
         public const int JointCount = 30;
-        public const int Head = 6;
-        public const int LeftEye = 8;
-        public const int RightEye = 9;
         public const int LeftLeg = 22;
         public const int RightLeg = 26;
-        public const int LeftFoot = 24;
-        public const int LeftToeBase = 25;
-        public const int RightFoot = 28;
-        public const int RightToeBase = 29;
 
         public static readonly string[] JointNames =
         {
@@ -136,6 +129,43 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             new(-0.000000f, -0.000000f, 0.000000f, 1.000000f), // RightShin
             new(-0.000000f, -0.000000f, -0.566943f, 0.823757f), // RightFoot
             new(0.000235f, 0.000699f, -0.041258f, 0.999148f), // RightToeBase
+        };
+
+        /// <summary>
+        /// World rotation of each joint in the bind pose (an A-pose) of the SOMA character mesh.
+        /// </summary>
+        public static readonly quaternion[] BindRotations =
+        {
+            new(0.496573f, 0.503404f, 0.496573f, 0.503404f), // Hips
+            new(0.494499f, 0.505441f, 0.494499f, 0.505441f), // Spine1
+            new(0.479358f, 0.519823f, 0.479358f, 0.519823f), // Spine2
+            new(0.499115f, 0.500884f, 0.499115f, 0.500884f), // Chest
+            new(0.568820f, 0.420052f, 0.568820f, 0.420052f), // Neck1
+            new(0.568820f, 0.420052f, 0.568820f, 0.420052f), // Neck2
+            new(0.467083f, 0.530880f, 0.467083f, 0.530880f), // Head
+            new(0.469716f, 0.528552f, 0.469716f, 0.528552f), // Jaw
+            new(0.533350f, 0.498629f, 0.499144f, 0.466650f), // LeftEye
+            new(0.499144f, 0.466650f, 0.533350f, 0.498629f), // RightEye
+            new(0.704278f, 0.063204f, -0.188002f, 0.681655f), // LeftShoulder
+            new(0.475748f, -0.248032f, -0.354606f, 0.765766f), // LeftArm
+            new(0.409415f, -0.346750f, -0.177187f, 0.825075f), // LeftForeArm
+            new(0.552918f, -0.454232f, -0.093736f, 0.692220f), // LeftHand
+            new(0.666354f, -0.578321f, 0.308491f, 0.355457f), // LeftHandThumbEnd
+            new(0.423901f, -0.565958f, -0.335988f, 0.622183f), // LeftHandMiddleEnd
+            new(-0.681655f, -0.188005f, -0.063194f, 0.704277f), // RightShoulder
+            new(-0.765767f, -0.354595f, 0.248031f, 0.475757f), // RightArm
+            new(-0.825072f, -0.177180f, 0.346749f, 0.409425f), // RightForeArm
+            new(-0.692217f, -0.093743f, 0.454232f, 0.552921f), // RightHand
+            new(-0.355451f, 0.308494f, 0.578324f, 0.666353f), // RightHandThumbEnd
+            new(-0.622189f, -0.335978f, 0.565957f, 0.423902f), // RightHandMiddleEnd
+            new(-0.535543f, 0.472471f, -0.491797f, 0.498098f), // LeftLeg
+            new(-0.461986f, 0.544613f, -0.415008f, 0.563678f), // LeftShin
+            new(-0.759832f, 0.140315f, -0.624243f, 0.115276f), // LeftFoot
+            new(-0.764510f, 0.108778f, -0.629031f, 0.089502f), // LeftToeBase
+            new(0.498098f, 0.491797f, 0.472471f, 0.535542f), // RightLeg
+            new(0.563679f, 0.415008f, 0.544613f, 0.461986f), // RightShin
+            new(0.115276f, 0.624243f, 0.140315f, 0.759832f), // RightFoot
+            new(0.089503f, 0.629031f, 0.108780f, 0.764510f), // RightToeBase
         };
     }
 }

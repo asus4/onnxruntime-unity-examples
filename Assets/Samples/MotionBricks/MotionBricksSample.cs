@@ -15,7 +15,7 @@ using UnityEngine.InputSystem;
 ///
 /// Each MotionBricks call generates up to 1.9 s of motion from the four latest poses toward a target.
 /// Far from the destination, the target is a waypoint ahead with a position, heading and walking speed
-/// but no body pose, so the model chooses a walk. Near the destination, the target is the idle pose
+/// but no body pose, so the model chooses a walk. Near the destination, the target is a random goal pose
 /// placed there, so the model stops in it. The next motion is generated on a worker thread while the
 /// current one plays.
 /// </summary>
@@ -35,11 +35,59 @@ public sealed class MotionBricksSample : MonoBehaviour
     // character hop, so it starts with a walk.
     const float MinWalkDistance = 0.6f;
 
-    [SerializeField]
-    SomaSkeletonView characterView;
+    // Goal poses: the idle pose with bones aimed along directions of the character,
+    // where +X is its left, +Y up and +Z its front.
+    static readonly (string name, (string bone, float3 direction)[] aims)[] GoalPoses =
+    {
+        ("Hooray", new[]
+        {
+            ("LeftArm", new float3(0.5f, 1, 0.15f)), ("LeftForeArm", new float3(0.45f, 1, 0.1f)),
+            ("RightArm", new float3(-0.5f, 1, 0.15f)), ("RightForeArm", new float3(-0.45f, 1, 0.1f)),
+            ("Spine1", new float3(0, 1, -0.12f)), ("Neck1", new float3(0, 1, -0.25f)),
+            ("LeftLeg", new float3(0.12f, -1, 0)), ("RightLeg", new float3(-0.12f, -1, 0)),
+        }),
+        ("Yoga tree", new[]
+        {
+            ("LeftLeg", new float3(-0.05f, -1, 0)), ("RightLeg", new float3(-0.8f, -0.45f, 0.4f)),
+            ("RightShin", new float3(0.75f, -0.6f, -0.2f)),
+            ("LeftArm", new float3(0.15f, 1, 0)), ("LeftForeArm", new float3(-0.5f, 0.85f, 0)),
+            ("RightArm", new float3(-0.15f, 1, 0)), ("RightForeArm", new float3(0.5f, 0.85f, 0)),
+        }),
+        ("Yoga warrior", new[]
+        {
+            ("LeftLeg", new float3(0.75f, -0.65f, 0)), ("LeftShin", new float3(0, -1, 0)),
+            ("RightLeg", new float3(-0.55f, -0.85f, 0)), ("RightShin", new float3(-0.55f, -0.85f, 0)),
+            ("LeftArm", new float3(1, 0, 0)), ("RightArm", new float3(-1, 0, 0)),
+        }),
+        ("Invisible chair", new[]
+        {
+            ("LeftLeg", new float3(0.05f, 0, 1)), ("LeftShin", new float3(0, -1, 0)),
+            ("RightLeg", new float3(-0.05f, 0, 1)), ("RightShin", new float3(0, -1, 0)), ("Spine1", new float3(0, 1, -0.15f)),
+            ("LeftArm", new float3(0.1f, -0.6f, 0.8f)), ("LeftForeArm", new float3(0, -0.2f, 1)),
+            ("RightArm", new float3(-0.1f, -0.6f, 0.8f)), ("RightForeArm", new float3(0, -0.2f, 1)),
+        }),
+        ("Zombie", new[]
+        {
+            ("Spine1", new float3(0, 1, 0.3f)), ("Neck1", new float3(0.45f, 0.75f, 0.35f)),
+            ("LeftArm", new float3(0.1f, 0, 1)), ("LeftForeArm", new float3(0.05f, -0.05f, 1)),
+            ("RightArm", new float3(-0.1f, 0.15f, 1)), ("RightForeArm", new float3(-0.05f, 0.1f, 1)),
+            ("LeftLeg", new float3(0.1f, -1, 0.2f)), ("LeftShin", new float3(0.05f, -1, -0.1f)),
+            ("RightLeg", new float3(-0.1f, -1, 0.2f)), ("RightShin", new float3(-0.05f, -1, -0.1f)),
+        }),
+        ("Superhero", new[]
+        {
+            ("LeftArm", new float3(0.75f, -0.55f, -0.3f)), ("LeftForeArm", new float3(-0.6f, -0.6f, 0.4f)),
+            ("RightArm", new float3(-0.75f, -0.55f, -0.3f)), ("RightForeArm", new float3(0.6f, -0.6f, 0.4f)),
+            ("LeftLeg", new float3(0.2f, -1, 0)), ("RightLeg", new float3(-0.2f, -1, 0)),
+        }),
+        ("Bow", new[] { ("Spine1", new float3(0, 0.6f, 0.8f)) }),
+    };
 
     [SerializeField]
-    SomaSkeletonView goalView;
+    SomaCharacter character;
+
+    [SerializeField]
+    SomaCharacter goalPreview;
 
     [SerializeField]
     Camera mainCamera;
@@ -72,6 +120,8 @@ public sealed class MotionBricksSample : MonoBehaviour
     readonly SomaPose[] targets = new SomaPose[4];
     bool hasGoal;
     bool goalChanged;
+    int poseIndex; // Goal pose of the destination being chosen
+    string poseName = "Stand"; // Goal pose of the current destination
 
     bool dragging;
     Vector3 pressPoint;
@@ -87,9 +137,10 @@ public sealed class MotionBricksSample : MonoBehaviour
             context[i] = new SomaPose();
             targets[i] = new SomaPose();
         }
-        // Start standing, facing the camera (Unity -Z is SOMA +Z, so turn around).
+        // Start standing, facing the camera. The idle pose faces +Z, so turn around.
         current.Frames[0].SetIdle(float2.zero, math.PI);
         current.FrameCount = 1;
+        poseIndex = UnityEngine.Random.Range(0, GoalPoses.Length);
 
         loadingIndicator.SetActive(true);
         var cancellationToken = destroyCancellationToken;
@@ -195,24 +246,25 @@ public sealed class MotionBricksSample : MonoBehaviour
         float t = (float)(frameTime - currentStart);
         int a = math.clamp((int)t, 0, current.FrameCount - 1);
         int b = math.min(a + 1, current.FrameCount - 1);
-        float blend = math.saturate(t - a);
-        pose.Lerp(current.Frames[a], current.Frames[b], blend);
-        characterView.Draw(pose, math.lerp(current.FootContacts[a], current.FootContacts[b], blend));
+        pose.Lerp(current.Frames[a], current.Frames[b], math.saturate(t - a));
+        character.SetPose(pose);
 
+        // A translucent copy of the character shows where it will stop.
+        goalPreview.gameObject.SetActive(dragging || hasGoal);
         if (dragging)
         {
             MakeGoalPose(pressPoint, dragFacing, preview);
-            goalView.Draw(preview, float4.zero);
+            goalPreview.SetPose(preview);
         }
         else if (hasGoal)
         {
-            goalView.Draw(goal, float4.zero);
+            goalPreview.SetPose(goal);
         }
     }
 
     void LateUpdate()
     {
-        Vector3 hips = SomaSkeletonView.ToUnity(pose.RootPosition);
+        Vector3 hips = SomaCharacter.ToUnity(pose.RootPosition);
         var target = new Vector3(hips.x, 0f, hips.z);
         Vector3 position = Vector3.SmoothDamp(mainCamera.transform.position, target + cameraOffset, ref cameraVelocity, 0.4f);
         mainCamera.transform.SetPositionAndRotation(position, Quaternion.LookRotation(target + Vector3.up * 0.9f - position));
@@ -270,13 +322,21 @@ public sealed class MotionBricksSample : MonoBehaviour
         generation = null;
     }
 
-    /// <summary>The idle pose at the destination, facing the drag direction or the way there.</summary>
+    /// <summary>The chosen goal pose at the destination, facing the drag direction or the way there.</summary>
     void MakeGoalPose(Vector3 destination, Vector3? facing, SomaPose output)
     {
-        float3 p = SomaSkeletonView.ToSoma(destination);
-        float2 direction = facing.HasValue ? SomaSkeletonView.ToSoma(facing.Value).xz : p.xz - pose.RootPosition.xz;
+        float3 p = SomaCharacter.ToSoma(destination);
+        float2 direction = facing.HasValue ? SomaCharacter.ToSoma(facing.Value).xz : p.xz - pose.RootPosition.xz;
         float yaw = math.lengthsq(direction) > 1e-4f ? math.atan2(direction.x, direction.y) : pose.Heading;
         output.SetIdle(p.xz, yaw);
+
+        float ground = output.LowestHeight();
+        foreach (var (bone, aim) in GoalPoses[poseIndex].aims)
+        {
+            output.Aim(Array.IndexOf(SomaSkeleton.JointNames, bone), math.mul(quaternion.RotateY(yaw), aim));
+        }
+        // Keep the lowest joint on the ground, for example when sitting.
+        output.RootPosition.y += ground - output.LowestHeight();
     }
 
     /// <summary>Mouse, pen and touch: press the ground to choose the destination, drag to choose the facing.</summary>
@@ -291,6 +351,8 @@ public sealed class MotionBricksSample : MonoBehaviour
         if (pointer.press.wasPressedThisFrame && !IsOverUI(screen) && TryGetGroundPoint(screen, out pressPoint))
         {
             dragging = true;
+            // A different goal pose from the last one
+            poseIndex = (poseIndex + UnityEngine.Random.Range(1, GoalPoses.Length)) % GoalPoses.Length;
         }
         if (!dragging)
         {
@@ -305,8 +367,10 @@ public sealed class MotionBricksSample : MonoBehaviour
         {
             dragging = false;
             MakeGoalPose(pressPoint, dragFacing, goal);
+            poseName = GoalPoses[poseIndex].name;
             hasGoal = true;
             goalChanged = true;
+            UpdateStatus();
         }
     }
 
@@ -327,7 +391,7 @@ public sealed class MotionBricksSample : MonoBehaviour
 
     void UpdateStatus()
     {
-        statusLabel.SetText($"{inferenceMilliseconds:F0} ms per generation\n"
+        statusLabel.SetText($"Pose: {poseName}\n{inferenceMilliseconds:F0} ms per generation\n"
             + "<size=80%>Tap the ground to walk there. Drag to set the facing.</size>");
     }
 }

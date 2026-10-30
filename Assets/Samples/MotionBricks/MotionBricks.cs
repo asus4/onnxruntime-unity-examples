@@ -52,6 +52,40 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             }
         }
 
+        /// <summary>
+        /// Turns a joint, with the joints below it, so the bone to its first child points along a direction.
+        /// </summary>
+        public void Aim(int joint, float3 direction)
+        {
+            Span<float3> positions = stackalloc float3[SomaSkeleton.JointCount];
+            Span<quaternion> rotations = stackalloc quaternion[SomaSkeleton.JointCount];
+            ComputeWorld(positions, rotations);
+            int child = Array.IndexOf(SomaSkeleton.Parents, joint);
+            float3 from = math.normalize(positions[child] - positions[joint]);
+            float3 to = math.normalize(direction);
+            float3 axis = math.cross(from, to);
+            if (math.lengthsq(axis) < 1e-12f)
+            {
+                return;
+            }
+            var turn = quaternion.AxisAngle(math.normalize(axis), math.atan2(math.length(axis), math.dot(from, to)));
+            LocalRotations[joint] = math.mul(math.inverse(rotations[SomaSkeleton.Parents[joint]]), math.mul(turn, rotations[joint]));
+        }
+
+        /// <summary>Height of the lowest joint.</summary>
+        public float LowestHeight()
+        {
+            Span<float3> positions = stackalloc float3[SomaSkeleton.JointCount];
+            Span<quaternion> rotations = stackalloc quaternion[SomaSkeleton.JointCount];
+            ComputeWorld(positions, rotations);
+            float lowest = float.MaxValue;
+            foreach (float3 p in positions)
+            {
+                lowest = math.min(lowest, p.y);
+            }
+            return lowest;
+        }
+
         /// <summary>Facing around Y, measured from the leg joints like the model does. 0 faces +Z.</summary>
         public float Heading => HeadingFromLegs(
             math.mul(LocalRotations[0], SomaSkeleton.LocalPositions[SomaSkeleton.RightLeg]),
@@ -73,10 +107,6 @@ namespace Microsoft.ML.OnnxRuntime.Examples
     public sealed class MotionSegment
     {
         public readonly SomaPose[] Frames = new SomaPose[MotionBricks.MaxFrames];
-
-        /// <summary>Left heel, left toe, right heel and right toe contact, from 0 to 1.</summary>
-        public readonly float4[] FootContacts = new float4[MotionBricks.MaxFrames];
-
         public int FrameCount;
         public double InferenceMilliseconds;
 
@@ -321,9 +351,9 @@ namespace Microsoft.ML.OnnxRuntime.Examples
             for (int f = 0; f < count; f++)
             {
                 ReadOnlySpan<float> row = motions.AsSpan((BoundaryFrames + f) * MotionFeatures, MotionFeatures);
-                output.FootContacts[f] = math.saturate(new float4(row[^4], row[^3], row[^2], row[^1]));
 
                 // The output holds the rotation of every joint in the aligned space.
+                // Joint positions, velocities and foot contacts follow, but are not used here.
                 for (int j = 0; j < Joints; j++)
                 {
                     ReadOnlySpan<float> r = row.Slice(MotionRotationOffset + j * 6, 6);
