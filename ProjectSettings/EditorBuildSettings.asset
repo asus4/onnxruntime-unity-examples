@@ -35,5 +35,7 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Samples/RTMPose/RTMPose.unity
     guid: 5dd053377a9547d38d4333e11c8d38e5
+  - enabled: 1
+    path: Assets/Samples/MotionBricks/MotionBricks.unity
+    guid: 4ac45c85816c54fb8b19e8c3dd3c4a77
   m_configObjects: {}
-  m_UseUCBPForAssetBundles: 0
